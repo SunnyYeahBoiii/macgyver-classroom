@@ -1,0 +1,141 @@
+model User {
+  id              String     @id @default(uuid()) @db.Uuid
+  email           String     @unique
+  passwordHash    String?
+  displayName     String?
+  role            UserRole   @default(TEACHER)
+  status          UserStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  authIdentities       AuthIdentity[]
+  sessions             Session[]
+  memberships          OrganizationMember[]
+  teacherProfile       TeacherProfile?
+  storageObjects       StorageObjectRef[]
+  mediaAssets          MediaAsset[]
+  inventoryScans       InventoryScan[]
+  confirmedItems       ConfirmedItem[]        @relation("ConfirmedItemConfirmedBy")
+  experimentMatches    ExperimentMatch[]
+  lessonPlans          LessonPlan[]
+  lessonVersions       LessonPlanVersion[]    @relation("LessonVersionCreatedBy")
+  lessonExports        LessonExport[]         @relation("LessonExportCreatedBy")
+  aiRuns               AiRun[]
+  safetyConfirmations  SafetyCheckResult[]    @relation("SafetyConfirmedBy")
+  submittedFeedback    Feedback[]             @relation("FeedbackSubmittedBy")
+  assignedFeedback     Feedback[]             @relation("FeedbackAssignedTo")
+  analyticsEvents      AnalyticsEvent[]
+  assignedLeads        Lead[]                 @relation("LeadAssignedTo")
+  leadEvents           LeadEvent[]            @relation("LeadEventActor")
+  reviewNotes          ReviewNote[]           @relation("ReviewNoteReviewer")
+  assignedReviewNotes  ReviewNote[]           @relation("ReviewNoteAssignee")
+  contentStatusChanges ContentStatusHistory[] @relation("ContentStatusChangedBy")
+  auditLogs            AuditLog[]             @relation("AuditActor")
+
+  @@index([status])
+  @@index([role])
+}
+
+model AuthIdentity {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  provider       AuthProvider
+  providerUserId String
+  providerEmail  String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  refreshTokenHash String    @unique
+  deviceLabel      String?
+  userAgentHash    String?
+  ipHash           String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analyticsEvents AnalyticsEvent[]
+
+  @@index([userId, expiresAt])
+  @@index([revokedAt])
+}
+
+model Organization {
+  id                      String             @id @default(uuid()) @db.Uuid
+  name                    String
+  slug                    String             @unique
+  type                    OrganizationType   @default(SCHOOL)
+  status                  OrganizationStatus @default(PROSPECT)
+  allowReadOnlyShareLinks Boolean            @default(false)
+  metadata                Json?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  memberships       OrganizationMember[]
+  teacherProfiles   TeacherProfile[]
+  storageObjects    StorageObjectRef[]
+  mediaAssets       MediaAsset[]
+  inventoryScans    InventoryScan[]
+  experimentMatches ExperimentMatch[]
+  lessonPlans       LessonPlan[]
+  aiRuns            AiRun[]
+  feedback          Feedback[]
+  analyticsEvents   AnalyticsEvent[]
+  leads             Lead[]
+
+  @@index([status])
+  @@index([type])
+}
+
+model OrganizationMember {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @db.Uuid
+  userId         String           @db.Uuid
+  role           OrganizationRole @default(TEACHER)
+  status         MemberStatus     @default(ACTIVE)
+  invitedAt      DateTime?
+  joinedAt       DateTime?
+  removedAt      DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@index([organizationId, role])
+}
+
+model TeacherProfile {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String   @unique @db.Uuid
+  organizationId     String?  @db.Uuid
+  subjects           String[] @default([])
+  gradeBands         String[] @default([])
+  defaultClassLabels String[] @default([])
+  teachingNotes      String?
+  defaultTopic       String?
+  metadata           Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization?   @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  inventoryScans InventoryScan[]
+
+  @@index([organizationId])
+}

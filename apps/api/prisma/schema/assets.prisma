@@ -1,0 +1,45 @@
+model StorageObjectRef {
+  id             String    @id @default(uuid()) @db.Uuid
+  bucket         String
+  objectPath     String
+  contentType    String?
+  byteSize       Int?
+  checksum       String?
+  ownerUserId    String?   @db.Uuid
+  organizationId String?   @db.Uuid
+  metadata       Json?
+  createdAt      DateTime  @default(now())
+  deletedAt      DateTime?
+
+  ownerUser     User?          @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  organization  Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  mediaAsset    MediaAsset?
+  lessonExports LessonExport[]
+
+  @@unique([bucket, objectPath])
+  @@index([ownerUserId])
+  @@index([organizationId])
+}
+
+model MediaAsset {
+  id              String    @id @default(uuid()) @db.Uuid
+  storageObjectId String    @unique @db.Uuid
+  ownerUserId     String?   @db.Uuid
+  organizationId  String?   @db.Uuid
+  assetType       String
+  originalName    String?
+  consentAt       DateTime?
+  retentionUntil  DateTime?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  deletedAt       DateTime?
+
+  storageObject StorageObjectRef @relation(fields: [storageObjectId], references: [id], onDelete: Restrict)
+  ownerUser     User?            @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  organization  Organization?    @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  scanImages    ScanImage[]
+
+  @@index([ownerUserId])
+  @@index([organizationId])
+  @@index([assetType])
+}

@@ -1,0 +1,215 @@
+enum UserRole {
+  TEACHER
+  SCHOOL_ADMIN
+  CONTENT_ADMIN
+  INTERNAL_ADMIN
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+}
+
+enum OrganizationType {
+  SCHOOL
+  PILOT_SCHOOL
+  INTERNAL
+}
+
+enum OrganizationStatus {
+  PROSPECT
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum OrganizationRole {
+  OWNER
+  SCHOOL_ADMIN
+  TEACHER
+  CONTENT_ADMIN
+}
+
+enum MemberStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum InventoryScanStatus {
+  CREATED
+  UPLOADING
+  UPLOADED
+  ANALYZING
+  NEEDS_CONFIRMATION
+  CONFIRMED
+  FAILED
+}
+
+enum ScanImageStatus {
+  PENDING
+  UPLOADED
+  FAILED
+}
+
+enum ConfirmedItemSource {
+  AI_DETECTION
+  TEACHER_ADDED
+  TEACHER_CORRECTED
+}
+
+enum MaterialStatus {
+  DRAFT
+  ACTIVE
+  DISABLED
+  ARCHIVED
+}
+
+enum ContentStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  DISABLED
+  ARCHIVED
+}
+
+enum ExperimentDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum RequirementType {
+  REQUIRED
+  OPTIONAL
+}
+
+enum SafetyCategory {
+  LOW
+  MEDIUM
+  HIGH
+  BLOCKED
+}
+
+enum SafetyRuleType {
+  DENYLIST
+  WARNING
+  REQUIRED_CHECK
+  UNSAFE_COMBINATION
+}
+
+enum SafetySeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SafetyCheckType {
+  MATCHING
+  LESSON_GENERATION
+  EXPORT_CONFIRMATION
+  ADMIN_REVIEW
+}
+
+enum SafetyCheckTarget {
+  INVENTORY_SCAN
+  EXPERIMENT_TEMPLATE
+  EXPERIMENT_MATCH
+  LESSON_PLAN
+  LESSON_EXPORT
+  AI_RUN
+}
+
+enum AiPipeline {
+  VISION_CATALOG
+  PROPERTY_MAPPING
+  EXPERIMENT_MATCHING
+  LESSON_GENERATION
+  SAFETY_CHECK
+}
+
+enum AiRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum LessonPlanStatus {
+  DRAFT
+  GENERATED
+  EDITED
+  EXPORTED
+  ARCHIVED
+}
+
+enum LessonExportType {
+  PDF
+  MARKDOWN
+  PLAIN_TEXT
+  SHARE_LINK
+}
+
+enum LessonExportStatus {
+  REQUESTED
+  READY
+  FAILED
+  REVOKED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  PILOT_SCHEDULED
+  PILOT_ACTIVE
+  CLOSED
+}
+
+enum LeadEventType {
+  CREATED
+  NOTE_ADDED
+  STATUS_CHANGED
+  CONTACTED
+  NOTIFICATION_SENT
+}
+
+enum FeedbackType {
+  RATING
+  REPORT
+  SAFETY_REPORT
+  CONTENT_QUALITY
+}
+
+enum FeedbackReportType {
+  UNSAFE
+  INCORRECT
+  LOW_QUALITY
+  BUG
+  OTHER
+}
+
+enum FeedbackStatus {
+  NEW
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum ReviewStatus {
+  OPEN
+  ASSIGNED
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}

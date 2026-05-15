@@ -1,0 +1,117 @@
+model AiPromptVersion {
+  id          String        @id @default(uuid()) @db.Uuid
+  pipeline    AiPipeline
+  version     String
+  status      ContentStatus @default(DRAFT)
+  promptHash  String
+  schemaJson  Json?
+  notes       String?
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  aiRuns AiRun[]
+
+  @@unique([pipeline, version])
+  @@index([status])
+}
+
+model AiRun {
+  id                String      @id @default(uuid()) @db.Uuid
+  pipeline          AiPipeline
+  status            AiRunStatus @default(QUEUED)
+  userId            String?     @db.Uuid
+  organizationId    String?     @db.Uuid
+  promptVersionId   String?     @db.Uuid
+  inventoryScanId   String?     @db.Uuid
+  experimentMatchId String?     @db.Uuid
+  lessonPlanId      String?     @db.Uuid
+  provider          String?
+  model             String?
+  modelVersion      String?
+  inputJson         Json?
+  outputJson        Json?
+  errorCode         String?
+  errorMessage      String?
+  queuedAt          DateTime    @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  durationMs        Int?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  user            User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization    Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  promptVersion   AiPromptVersion?    @relation(fields: [promptVersionId], references: [id], onDelete: SetNull)
+  inventoryScan   InventoryScan?      @relation(fields: [inventoryScanId], references: [id], onDelete: SetNull)
+  experimentMatch ExperimentMatch?    @relation(fields: [experimentMatchId], references: [id], onDelete: SetNull)
+  lessonPlan      LessonPlan?         @relation(fields: [lessonPlanId], references: [id], onDelete: SetNull)
+  detectedItems   DetectedItem[]
+  safetyChecks    SafetyCheckResult[]
+  feedback        Feedback[]
+
+  @@index([pipeline, status])
+  @@index([userId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([inventoryScanId])
+  @@index([experimentMatchId])
+  @@index([lessonPlanId])
+}
+
+model SafetyRule {
+  id              String         @id @default(uuid()) @db.Uuid
+  ruleType        SafetyRuleType
+  materialId      String?        @db.Uuid
+  severity        SafetySeverity @default(MEDIUM)
+  active          Boolean        @default(true)
+  title           String
+  description     String?
+  criteria        Json?
+  requiredMessage String?
+  createdByUserId String?        @db.Uuid
+  updatedByUserId String?        @db.Uuid
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  material     Material?           @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  checkResults SafetyCheckResult[]
+
+  @@index([ruleType, active])
+  @@index([severity])
+  @@index([materialId])
+}
+
+model SafetyCheckResult {
+  id                   String            @id @default(uuid()) @db.Uuid
+  checkType            SafetyCheckType
+  targetType           SafetyCheckTarget
+  targetId             String?           @db.Uuid
+  safetyRuleId         String?           @db.Uuid
+  inventoryScanId      String?           @db.Uuid
+  experimentTemplateId String?           @db.Uuid
+  experimentMatchId    String?           @db.Uuid
+  lessonPlanId         String?           @db.Uuid
+  lessonExportId       String?           @db.Uuid
+  aiRunId              String?           @db.Uuid
+  confirmedByUserId    String?           @db.Uuid
+  blocked              Boolean           @default(false)
+  severity             SafetySeverity    @default(INFO)
+  reasons              Json?
+  ruleResults          Json?
+  teacherConfirmedAt   DateTime?
+  createdAt            DateTime          @default(now())
+
+  safetyRule         SafetyRule?         @relation(fields: [safetyRuleId], references: [id], onDelete: SetNull)
+  inventoryScan      InventoryScan?      @relation(fields: [inventoryScanId], references: [id], onDelete: Cascade)
+  experimentTemplate ExperimentTemplate? @relation(fields: [experimentTemplateId], references: [id], onDelete: SetNull)
+  experimentMatch    ExperimentMatch?    @relation(fields: [experimentMatchId], references: [id], onDelete: Cascade)
+  lessonPlan         LessonPlan?         @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  lessonExport       LessonExport?       @relation(fields: [lessonExportId], references: [id], onDelete: Cascade)
+  aiRun              AiRun?              @relation(fields: [aiRunId], references: [id], onDelete: SetNull)
+  confirmedByUser    User?               @relation("SafetyConfirmedBy", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([targetType, targetId])
+  @@index([checkType, blocked])
+  @@index([severity])
+  @@index([confirmedByUserId])
+}

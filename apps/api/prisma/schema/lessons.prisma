@@ -1,0 +1,96 @@
+model LessonPlan {
+  id                     String           @id @default(uuid()) @db.Uuid
+  userId                 String           @db.Uuid
+  organizationId         String?          @db.Uuid
+  experimentTemplateId   String?          @db.Uuid
+  experimentMatchId      String?          @db.Uuid
+  inventoryScanId        String?          @db.Uuid
+  currentVersionId       String?          @unique @db.Uuid
+  duplicatedFromLessonId String?          @db.Uuid
+  title                  String
+  subject                String?
+  gradeBand              String?
+  topic                  String?
+  classLabel             String?
+  status                 LessonPlanStatus @default(DRAFT)
+  favorite               Boolean          @default(false)
+  generatedAt            DateTime?
+  lastOpenedAt           DateTime?
+  archivedAt             DateTime?
+  deletedAt              DateTime?
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt
+
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization         Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  experimentTemplate   ExperimentTemplate? @relation(fields: [experimentTemplateId], references: [id], onDelete: SetNull)
+  experimentMatch      ExperimentMatch?    @relation(fields: [experimentMatchId], references: [id], onDelete: SetNull)
+  inventoryScan        InventoryScan?      @relation(fields: [inventoryScanId], references: [id], onDelete: SetNull)
+  currentVersion       LessonPlanVersion?  @relation("CurrentLessonVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  duplicatedFromLesson LessonPlan?         @relation("LessonDuplicate", fields: [duplicatedFromLessonId], references: [id], onDelete: SetNull)
+  duplicates           LessonPlan[]        @relation("LessonDuplicate")
+  versions             LessonPlanVersion[] @relation("LessonPlanVersions")
+  exports              LessonExport[]
+  aiRuns               AiRun[]
+  safetyChecks         SafetyCheckResult[]
+  feedback             Feedback[]
+
+  @@index([userId, status, updatedAt])
+  @@index([organizationId, createdAt])
+  @@index([subject, gradeBand])
+  @@index([topic])
+  @@index([archivedAt])
+  @@index([deletedAt])
+}
+
+model LessonPlanVersion {
+  id              String   @id @default(uuid()) @db.Uuid
+  lessonPlanId    String   @db.Uuid
+  versionNumber   Int
+  createdByUserId String?  @db.Uuid
+  title           String?
+  contentJson     Json
+  markdownText    String?
+  materialsJson   Json?
+  safetyJson      Json?
+  contextJson     Json?
+  createdAt       DateTime @default(now())
+
+  lessonPlan       LessonPlan     @relation("LessonPlanVersions", fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  currentForLesson LessonPlan?    @relation("CurrentLessonVersion")
+  createdByUser    User?          @relation("LessonVersionCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  exports          LessonExport[]
+
+  @@unique([lessonPlanId, versionNumber])
+  @@index([createdByUserId])
+}
+
+model LessonExport {
+  id                  String             @id @default(uuid()) @db.Uuid
+  lessonPlanId        String             @db.Uuid
+  lessonPlanVersionId String             @db.Uuid
+  createdByUserId     String?            @db.Uuid
+  storageObjectId     String?            @db.Uuid
+  exportType          LessonExportType
+  status              LessonExportStatus @default(REQUESTED)
+  storagePath         String?
+  shareTokenHash      String?            @unique
+  expiresAt           DateTime?
+  revokedAt           DateTime?
+  viewCount           Int                @default(0)
+  errorMessage        String?
+  metadata            Json?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  lessonPlan        LessonPlan          @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  lessonPlanVersion LessonPlanVersion   @relation(fields: [lessonPlanVersionId], references: [id], onDelete: Restrict)
+  createdByUser     User?               @relation("LessonExportCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  storageObject     StorageObjectRef?   @relation(fields: [storageObjectId], references: [id], onDelete: SetNull)
+  safetyChecks      SafetyCheckResult[]
+
+  @@index([lessonPlanId, createdAt])
+  @@index([createdByUserId, createdAt])
+  @@index([status])
+  @@index([expiresAt])
+}

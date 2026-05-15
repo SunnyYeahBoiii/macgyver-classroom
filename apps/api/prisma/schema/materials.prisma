@@ -1,0 +1,73 @@
+model Material {
+  id              String         @id @default(uuid()) @db.Uuid
+  canonicalName   String         @unique
+  displayName     String
+  status          MaterialStatus @default(DRAFT)
+  category        String?
+  defaultUnit     String?
+  description     String?
+  createdByUserId String?        @db.Uuid
+  updatedByUserId String?        @db.Uuid
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  aliases          MaterialAlias[]
+  properties       MaterialProperty[]
+  alternativesFrom MaterialAlternative[]           @relation("MaterialAlternativeFrom")
+  alternativesTo   MaterialAlternative[]           @relation("MaterialAlternativeTo")
+  detectedItems    DetectedItem[]
+  confirmedItems   ConfirmedItem[]
+  requirements     ExperimentMaterialRequirement[]
+  safetyRules      SafetyRule[]
+
+  @@index([status])
+  @@index([category])
+}
+
+model MaterialAlias {
+  id              String   @id @default(uuid()) @db.Uuid
+  materialId      String   @db.Uuid
+  alias           String
+  aliasNormalized String   @unique
+  locale          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([materialId])
+}
+
+model MaterialProperty {
+  id            String   @id @default(uuid()) @db.Uuid
+  materialId    String   @db.Uuid
+  propertyKey   String
+  propertyValue String?
+  valueJson     Json?
+  reasoning     String?
+  source        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([materialId, propertyKey])
+  @@index([propertyKey])
+}
+
+model MaterialAlternative {
+  id             String   @id @default(uuid()) @db.Uuid
+  fromMaterialId String   @db.Uuid
+  toMaterialId   String   @db.Uuid
+  constraints    Json?
+  reason         String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  fromMaterial Material @relation("MaterialAlternativeFrom", fields: [fromMaterialId], references: [id], onDelete: Cascade)
+  toMaterial   Material @relation("MaterialAlternativeTo", fields: [toMaterialId], references: [id], onDelete: Restrict)
+
+  @@unique([fromMaterialId, toMaterialId])
+  @@index([active])
+}

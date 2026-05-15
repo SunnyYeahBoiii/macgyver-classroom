@@ -1,0 +1,158 @@
+model Lead {
+  id               String     @id @default(uuid()) @db.Uuid
+  organizationId   String?    @db.Uuid
+  assignedToUserId String?    @db.Uuid
+  name             String
+  school           String
+  role             String
+  email            String?
+  phone            String?
+  notes            String?
+  source           String?
+  status           LeadStatus @default(NEW)
+  consentAt        DateTime?
+  metadata         Json?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  assignedTo   User?         @relation("LeadAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  events       LeadEvent[]
+
+  @@index([status, createdAt])
+  @@index([organizationId])
+  @@index([email])
+  @@index([phone])
+}
+
+model LeadEvent {
+  id          String        @id @default(uuid()) @db.Uuid
+  leadId      String        @db.Uuid
+  actorUserId String?       @db.Uuid
+  eventType   LeadEventType
+  fromStatus  LeadStatus?
+  toStatus    LeadStatus?
+  note        String?
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+
+  lead  Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actor User? @relation("LeadEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([leadId, createdAt])
+  @@index([actorUserId])
+}
+
+model AnalyticsEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  eventName      String
+  userId         String?  @db.Uuid
+  organizationId String?  @db.Uuid
+  sessionId      String?  @db.Uuid
+  entityType     String?
+  entityId       String?  @db.Uuid
+  properties     Json?
+  createdAt      DateTime @default(now())
+
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  session      Session?      @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  @@index([eventName, createdAt])
+  @@index([userId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model Feedback {
+  id                   String              @id @default(uuid()) @db.Uuid
+  userId               String?             @db.Uuid
+  organizationId       String?             @db.Uuid
+  assignedToUserId     String?             @db.Uuid
+  lessonPlanId         String?             @db.Uuid
+  experimentTemplateId String?             @db.Uuid
+  aiRunId              String?             @db.Uuid
+  targetType           String?
+  targetId             String?             @db.Uuid
+  type                 FeedbackType        @default(RATING)
+  rating               Int?
+  reportType           FeedbackReportType?
+  comment              String?
+  status               FeedbackStatus      @default(NEW)
+  metadata             Json?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  user               User?               @relation("FeedbackSubmittedBy", fields: [userId], references: [id], onDelete: SetNull)
+  organization       Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  assignedToUser     User?               @relation("FeedbackAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  lessonPlan         LessonPlan?         @relation(fields: [lessonPlanId], references: [id], onDelete: Cascade)
+  experimentTemplate ExperimentTemplate? @relation(fields: [experimentTemplateId], references: [id], onDelete: SetNull)
+  aiRun              AiRun?              @relation(fields: [aiRunId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([targetType, targetId])
+  @@index([lessonPlanId])
+  @@index([experimentTemplateId])
+}
+
+model ReviewNote {
+  id               String       @id @default(uuid()) @db.Uuid
+  contentType      String
+  contentId        String       @db.Uuid
+  reviewerUserId   String?      @db.Uuid
+  assignedToUserId String?      @db.Uuid
+  status           ReviewStatus @default(OPEN)
+  note             String?
+  metadata         Json?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  resolvedAt       DateTime?
+
+  reviewer   User? @relation("ReviewNoteReviewer", fields: [reviewerUserId], references: [id], onDelete: SetNull)
+  assignedTo User? @relation("ReviewNoteAssignee", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+
+  @@index([contentType, contentId])
+  @@index([status, createdAt])
+  @@index([assignedToUserId])
+}
+
+model ContentStatusHistory {
+  id              String         @id @default(uuid()) @db.Uuid
+  contentType     String
+  contentId       String         @db.Uuid
+  fromStatus      ContentStatus?
+  toStatus        ContentStatus
+  changedByUserId String?        @db.Uuid
+  reason          String?
+  metadata        Json?
+  createdAt       DateTime       @default(now())
+
+  changedByUser User? @relation("ContentStatusChangedBy", fields: [changedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([contentType, contentId, createdAt])
+  @@index([toStatus, createdAt])
+  @@index([changedByUserId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @db.Uuid
+  action      String
+  entityType  String
+  entityId    String?  @db.Uuid
+  beforeJson  Json?
+  afterJson   Json?
+  metadata    Json?
+  requestId   String?
+  ipHash      String?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+}

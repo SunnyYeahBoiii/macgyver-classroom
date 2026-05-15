@@ -1,0 +1,102 @@
+model InventoryScan {
+  id               String              @id @default(uuid()) @db.Uuid
+  userId           String              @db.Uuid
+  organizationId   String?             @db.Uuid
+  teacherProfileId String?             @db.Uuid
+  status           InventoryScanStatus @default(CREATED)
+  subject          String?
+  gradeBand        String?
+  classLabel       String?
+  topic            String?
+  teacherNotes     String?
+  errorCode        String?
+  errorMessage     String?
+  confirmedAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization      Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  teacherProfile    TeacherProfile?     @relation(fields: [teacherProfileId], references: [id], onDelete: SetNull)
+  images            ScanImage[]
+  detectedItems     DetectedItem[]
+  confirmedItems    ConfirmedItem[]
+  experimentMatches ExperimentMatch[]
+  lessonPlans       LessonPlan[]
+  aiRuns            AiRun[]
+  safetyChecks      SafetyCheckResult[]
+
+  @@index([userId, status])
+  @@index([organizationId, createdAt])
+  @@index([status, createdAt])
+}
+
+model ScanImage {
+  id           String          @id @default(uuid()) @db.Uuid
+  scanId       String          @db.Uuid
+  mediaAssetId String          @db.Uuid
+  sortOrder    Int             @default(0)
+  status       ScanImageStatus @default(PENDING)
+  errorMessage String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  scan          InventoryScan  @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  mediaAsset    MediaAsset     @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+  detectedItems DetectedItem[]
+
+  @@index([scanId, sortOrder])
+  @@index([mediaAssetId])
+}
+
+model DetectedItem {
+  id               String   @id @default(uuid()) @db.Uuid
+  scanId           String   @db.Uuid
+  scanImageId      String?  @db.Uuid
+  materialId       String?  @db.Uuid
+  aiRunId          String?  @db.Uuid
+  rawLabel         String
+  canonicalName    String?
+  quantityEstimate Float?
+  unit             String?
+  confidence       Float?
+  evidence         Json?
+  safetyFlags      Json?
+  createdAt        DateTime @default(now())
+
+  scan           InventoryScan   @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  scanImage      ScanImage?      @relation(fields: [scanImageId], references: [id], onDelete: SetNull)
+  material       Material?       @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  aiRun          AiRun?          @relation(fields: [aiRunId], references: [id], onDelete: SetNull)
+  confirmedItems ConfirmedItem[]
+
+  @@index([scanId])
+  @@index([scanImageId])
+  @@index([materialId])
+  @@index([aiRunId])
+}
+
+model ConfirmedItem {
+  id                String              @id @default(uuid()) @db.Uuid
+  scanId            String              @db.Uuid
+  detectedItemId    String?             @db.Uuid
+  materialId        String?             @db.Uuid
+  confirmedByUserId String?             @db.Uuid
+  name              String
+  normalizedName    String?
+  quantity          Float?
+  unit              String?
+  source            ConfirmedItemSource @default(TEACHER_CORRECTED)
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  scan            InventoryScan @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  detectedItem    DetectedItem? @relation(fields: [detectedItemId], references: [id], onDelete: SetNull)
+  material        Material?     @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  confirmedByUser User?         @relation("ConfirmedItemConfirmedBy", fields: [confirmedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([scanId])
+  @@index([materialId])
+  @@index([normalizedName])
+}

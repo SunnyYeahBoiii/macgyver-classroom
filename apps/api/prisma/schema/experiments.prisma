@@ -1,0 +1,150 @@
+model ExperimentTemplate {
+  id              String               @id @default(uuid()) @db.Uuid
+  slug            String               @unique
+  title           String
+  summary         String?
+  subject         String?
+  gradeBands      String[]             @default([])
+  topic           String?
+  durationMinutes Int                  @default(45)
+  difficulty      ExperimentDifficulty @default(EASY)
+  safetyCategory  SafetyCategory       @default(LOW)
+  status          ContentStatus        @default(DRAFT)
+  objectives      Json?
+  teacherChecks   Json?
+  sourceNotes     String?
+  publishedAt     DateTime?
+  disabledAt      DateTime?
+  archivedAt      DateTime?
+  createdByUserId String?              @db.Uuid
+  updatedByUserId String?              @db.Uuid
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  materialRequirements ExperimentMaterialRequirement[]
+  steps                ExperimentStep[]
+  safetyNotes          ExperimentSafetyNote[]
+  curriculumMappings   ExperimentCurriculumMapping[]
+  matches              ExperimentMatch[]
+  lessonPlans          LessonPlan[]
+  safetyChecks         SafetyCheckResult[]
+  feedback             Feedback[]
+
+  @@index([status, subject])
+  @@index([topic])
+  @@index([safetyCategory])
+}
+
+model ExperimentMaterialRequirement {
+  id                   String          @id @default(uuid()) @db.Uuid
+  experimentTemplateId String          @db.Uuid
+  materialId           String?         @db.Uuid
+  propertyKey          String?
+  requirementType      RequirementType @default(REQUIRED)
+  requiredQuantity     Float?
+  unit                 String?
+  notes                String?
+  alternatives         Json?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  experimentTemplate ExperimentTemplate @relation(fields: [experimentTemplateId], references: [id], onDelete: Cascade)
+  material           Material?          @relation(fields: [materialId], references: [id], onDelete: SetNull)
+
+  @@unique([experimentTemplateId, materialId])
+  @@index([experimentTemplateId, requirementType])
+  @@index([materialId])
+  @@index([propertyKey])
+}
+
+model ExperimentStep {
+  id                   String   @id @default(uuid()) @db.Uuid
+  experimentTemplateId String   @db.Uuid
+  sequence             Int
+  title                String?
+  instructions         String
+  durationMinutes      Int?
+  teacherNotes         String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  experimentTemplate ExperimentTemplate @relation(fields: [experimentTemplateId], references: [id], onDelete: Cascade)
+
+  @@unique([experimentTemplateId, sequence])
+}
+
+model ExperimentSafetyNote {
+  id                   String         @id @default(uuid()) @db.Uuid
+  experimentTemplateId String         @db.Uuid
+  severity             SafetySeverity @default(INFO)
+  note                 String
+  required             Boolean        @default(true)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  experimentTemplate ExperimentTemplate @relation(fields: [experimentTemplateId], references: [id], onDelete: Cascade)
+
+  @@index([experimentTemplateId, severity])
+}
+
+model CurriculumStandard {
+  id          String        @id @default(uuid()) @db.Uuid
+  code        String        @unique
+  gradeBand   String
+  subject     String
+  topic       String
+  description String?
+  status      ContentStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  experimentMappings ExperimentCurriculumMapping[]
+
+  @@index([gradeBand, subject])
+  @@index([topic])
+  @@index([status])
+}
+
+model ExperimentCurriculumMapping {
+  id                   String   @id @default(uuid()) @db.Uuid
+  experimentTemplateId String   @db.Uuid
+  curriculumStandardId String   @db.Uuid
+  fitReason            String?
+  createdAt            DateTime @default(now())
+
+  experimentTemplate ExperimentTemplate @relation(fields: [experimentTemplateId], references: [id], onDelete: Cascade)
+  curriculumStandard CurriculumStandard @relation(fields: [curriculumStandardId], references: [id], onDelete: Cascade)
+
+  @@unique([experimentTemplateId, curriculumStandardId])
+  @@index([curriculumStandardId])
+}
+
+model ExperimentMatch {
+  id                   String    @id @default(uuid()) @db.Uuid
+  inventoryScanId      String    @db.Uuid
+  experimentTemplateId String    @db.Uuid
+  userId               String    @db.Uuid
+  organizationId       String?   @db.Uuid
+  score                Float
+  rank                 Int?
+  availableMaterials   Json?
+  missingMaterials     Json?
+  alternatives         Json?
+  explanation          String?
+  blocked              Boolean   @default(false)
+  selectedAt           DateTime?
+  createdAt            DateTime  @default(now())
+
+  inventoryScan      InventoryScan       @relation(fields: [inventoryScanId], references: [id], onDelete: Cascade)
+  experimentTemplate ExperimentTemplate  @relation(fields: [experimentTemplateId], references: [id], onDelete: Restrict)
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization       Organization?       @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  lessonPlans        LessonPlan[]
+  aiRuns             AiRun[]
+  safetyChecks       SafetyCheckResult[]
+
+  @@unique([inventoryScanId, experimentTemplateId])
+  @@index([inventoryScanId, score])
+  @@index([userId, createdAt])
+  @@index([organizationId, createdAt])
+}
