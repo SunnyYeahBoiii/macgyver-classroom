@@ -11,6 +11,7 @@ Current workspace is a TypeScript monorepo:
 - `packages/ui` - shared React UI package.
 - `packages/eslint-config` and `packages/typescript-config` - shared tooling.
 - `docs/` - BRD, PRD, FRS, SRS for product requirements.
+- `features/` - feature-level PRDs derived from product docs.
 - `CITYFARM-2.0/` - reference/legacy material; do not edit unless the task explicitly targets it.
 
 ## Source Of Truth
@@ -19,7 +20,25 @@ Current workspace is a TypeScript monorepo:
 - Functional requirements: `docs/macgyver-classroom-frs.md`
 - Technical requirements: `docs/macgyver-classroom-srs.md`
 - Business context: `docs/macgyver-classroom-brd.md`
+- Feature PRD index: `features/README.md`
 - Agent harness: `.agents/README.md`
+
+## Feature PRDs
+
+Use these docs for feature-specific requirements, acceptance criteria, data/API notes, safety/privacy constraints, analytics, and open questions:
+
+- Authentication & Account: `features/01-authentication-account-prd.md`
+- Teacher Profile & School Context: `features/02-teacher-profile-school-context-prd.md`
+- Vision Catalog: `features/03-vision-catalog-prd.md`
+- Property Mapping: `features/04-property-mapping-prd.md`
+- Experiment Matching: `features/05-experiment-matching-prd.md`
+- Lesson Plan Generation: `features/06-lesson-plan-generation-prd.md`
+- Lesson Library: `features/07-lesson-library-prd.md`
+- Export & Sharing: `features/08-export-sharing-prd.md`
+- Safety & Quality Guardrails: `features/09-safety-quality-guardrails-prd.md`
+- Content Admin: `features/10-content-admin-prd.md`
+- Landing Page: `features/11-landing-page-prd.md`
+- Analytics & Feedback: `features/12-analytics-feedback-prd.md`
 
 ## Commands
 
@@ -69,4 +88,3 @@ If the runtime cannot delegate, use these files as role guidance and perform the
 ## Working Rules
 
 Keep changes scoped. Do not revert unrelated dirty files. Prefer existing repo patterns over new abstractions. Update tests and docs in proportion to the risk and user-visible impact.
-
