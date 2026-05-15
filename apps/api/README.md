@@ -31,6 +31,12 @@
 $ pnpm install
 ```
 
+## Environment
+
+Runtime config loads `apps/api/.env` through Nest `ConfigModule`, so both root
+workspace commands and API-local commands read the same environment file.
+Current keys used by the API are `PORT` and `DATABASE_URL`.
+
 ## Compile and run the project
 
 ```bash
