@@ -126,6 +126,7 @@ Acceptance criteria:
 Blocked by:
 
 - `PHUONG-02 - Mobile App Shell, Auth Session, And Navigation`
+- `THU-08 - FE-BE Contract Definition And Mock Data Layer`
 - `THINH-04 - Inventory Scan, Confirmed Item, And Asset APIs`
 - `PHONG-02 - Vision Scan Analysis Pipeline`
 
@@ -154,6 +155,7 @@ Blocked by:
 
 - `PHUONG-03 - Mobile Teacher Profile And Lesson Context Flow`
 - `PHUONG-04 - Mobile Inventory Capture, Upload, And Confirmation Flow`
+- `THU-08 - FE-BE Contract Definition And Mock Data Layer`
 - `PHONG-04 - Safety Guardrails Engine`
 - `PHONG-05 - Experiment Matching Engine`
 - `PHONG-06 - Lesson Generation Pipeline`
@@ -186,6 +188,7 @@ Acceptance criteria:
 Blocked by:
 
 - `PHUONG-05 - Mobile Experiment Suggestions And Lesson Generation Context`
+- `THU-08 - FE-BE Contract Definition And Mock Data Layer`
 - `THINH-05 - Lesson Library, Versioning, Export, And Share APIs`
 - `THINH-06 - Leads, Feedback, Analytics, And School Metrics APIs`
 
