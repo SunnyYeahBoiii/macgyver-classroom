@@ -1,8 +1,8 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { CanActivate, Injectable } from '@nestjs/common';
 
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
-  canActivate(_context: ExecutionContext): boolean {
+  canActivate(): boolean {
     return true;
   }
 }

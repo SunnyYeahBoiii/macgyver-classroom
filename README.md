@@ -2,6 +2,12 @@
 
 This Turborepo starter is maintained by the Turborepo core team.
 
+## Developer workflow
+
+Install dependencies with `bun install`. The root `prepare` script runs `husky`
+so Git uses the hooks in `.husky/`. The pre-commit hook runs `npm run lint`,
+which delegates to `turbo run lint` across the workspace.
+
 ## Using this example
 
 Run the following command:

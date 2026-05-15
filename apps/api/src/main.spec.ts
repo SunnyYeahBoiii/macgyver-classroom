@@ -21,14 +21,15 @@ describe('bootstrap', () => {
     }));
 
     jest.isolateModules(() => {
-      require('./main');
+      jest.requireActual('./main');
     });
     await Promise.resolve();
     await Promise.resolve();
 
     expect(create).toHaveBeenCalledTimes(1);
     expect(app.get).toHaveBeenCalledTimes(1);
-    expect(app.get.mock.calls[0][0].name).toBe('ConfigService');
+    const getCalls = app.get.mock.calls as Array<[{ name?: string }]>;
+    expect(getCalls[0]?.[0].name).toBe('ConfigService');
     expect(configService.get).toHaveBeenCalledWith('PORT', 4000);
     expect(app.listen).toHaveBeenCalledWith(4567);
   });
