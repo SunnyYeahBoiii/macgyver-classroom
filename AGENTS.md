@@ -65,6 +65,8 @@ Apply `.agents/rules` explicitly:
 - `ci-readiness.md` before handoff or completion.
 - `tdd.md` for behavior changes and bug fixes.
 - `unit-test.md` for unit tests and test review.
+- `review.md` for code review, PR review, and regression-risk review.
+- `flutter.md` for Flutter/Dart implementation, testing, review, and CI readiness.
 
 ## Skills
 
@@ -82,6 +84,7 @@ When sub-agent delegation is available and allowed, prefer the migrated prompts 
 - `codebase-locator` to find files and ownership.
 - `codebase-analyzer` to inspect implementation details.
 - `codebase-pattern-finder` to find existing patterns before adding new ones.
+- `flutter-implementer` to implement Flutter/Dart features, fixes, tests, routing, state, theming, and accessibility.
 - `thoughts-locator` and `thoughts-analyzer` for research notes and historical planning.
 - `web-search-researcher` only for current external facts that Context7 cannot cover.
 

@@ -20,9 +20,14 @@ Generated on 2026-05-15.
 - `.agents/skills/debug/SKILL.md`
 - `.agents/skills/tdd/SKILL.md`
 
+## Added After Migration
+
+- `.agents/rules/review.md`
+- `.agents/rules/flutter.md`
+- `.agents/agents/flutter-implementer.md`
+
 ## Notes
 
 - Source `.claude/skills` was not present in this repository.
 - Source `.claude/rules` was present but empty.
 - Legacy Claude commands are preserved under `.agents/commands` instead of being rewritten as Codex skills, so generated example skills can stay clean and conflict-free.
-
