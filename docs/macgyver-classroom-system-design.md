@@ -499,6 +499,11 @@ Server secrets:
 - `JWT_REFRESH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_SERVICE_ACCOUNT_JSON` - JSON service account credential used by the NestJS AI provider for Vertex AI.
+- `GOOGLE_VERTEX_PROJECT_ID` - Google Cloud project for Vertex AI; falls back to `project_id` inside `GOOGLE_SERVICE_ACCOUNT_JSON`.
+- `GOOGLE_VERTEX_LOCATION` - Vertex AI location for Gemini vision requests; MVP default is `global`.
+- `GOOGLE_VERTEX_MODEL` - Gemini image model for Vision Catalog; MVP default is `gemini-2.5-flash-image`.
+- `SCAN_ANALYZE_JSON_BODY_LIMIT` - NestJS JSON/urlencoded body-parser limit for transient base64 scan analysis payloads; MVP default is `16mb`.
 - `MODEL_API_URL`
 - `MODEL_API_AUTH_TOKEN`
 - `AI_PROVIDER_API_KEY` or provider-specific service credential
@@ -543,6 +548,7 @@ Metrics:
 
 - Invalid image.
 - Oversized image.
+- Oversized scan-analysis JSON body returns `413` before AI/provider execution.
 - Provider timeout.
 - Non-JSON model response.
 - Normalization of Vietnamese/English material names.
