@@ -17,6 +17,11 @@ GoRouter createRouter(AuthController authController) {
         path: _RoutePath.register,
         builder: (_, _) => const RegisterScreen(),
       ),
+      GoRoute(
+        path: _RoutePath.scanCamera,
+        pageBuilder: (_, state) =>
+            _withoutTransition(state, const CameraCaptureScreen()),
+      ),
       ShellRoute(
         builder: (context, state, child) =>
             MacGyverAppShell(location: state.uri.path, child: child),
@@ -159,6 +164,7 @@ abstract final class _RoutePath {
   static const home = '/home';
   static const profile = '/profile';
   static const scan = '/scan';
+  static const scanCamera = '/scan/camera';
   static const library = '/library';
   static const lessons = '/lessons';
   static const account = '/account';

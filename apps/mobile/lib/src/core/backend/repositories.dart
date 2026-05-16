@@ -397,13 +397,16 @@ abstract class ImageCaptureService {
 class FakeImageCaptureService implements ImageCaptureService {
   int _count = 0;
 
-  ScanImage _next(String source) => ScanImage(
-    id: 'image-${++_count}',
-    source: source,
-    path: source == 'camera'
-        ? 'mock://camera/classroom-cabinet.jpg'
-        : 'mock://gallery/lab-table.jpg',
-  );
+  ScanImage _next(String source) {
+    final count = ++_count;
+    return ScanImage(
+      id: source == 'camera' ? 'camera-$count.jpg' : 'gallery-$count.jpg',
+      source: source,
+      path: source == 'camera'
+          ? 'mock://camera/classroom-cabinet.jpg'
+          : 'mock://gallery/lab-table.jpg',
+    );
+  }
 
   @override
   Future<ScanImage?> captureCamera() async => _next('camera');
@@ -421,7 +424,10 @@ class FakeImageCaptureService implements ImageCaptureService {
 abstract class InventoryRepository {
   Future<InventoryScan> createDraft({required TeacherProfile profile});
   Future<InventoryScan> attachImages(String scanId, List<ScanImage> images);
-  Future<InventoryScan> analyze(String scanId);
+  Future<InventoryScan> analyze(
+    String scanId, {
+    List<ScanImage> images = const [],
+  });
   Future<InventoryScan?> getScan(String scanId);
   Future<InventoryScan> updateItems(String scanId, List<DetectedItem> items);
   Future<InventoryScan> confirm(String scanId);
@@ -462,7 +468,10 @@ class MockInventoryRepository implements InventoryRepository {
   }
 
   @override
-  Future<InventoryScan> analyze(String scanId) async {
+  Future<InventoryScan> analyze(
+    String scanId, {
+    List<ScanImage> images = const [],
+  }) async {
     await Future<void>.delayed(const Duration(milliseconds: 120));
     final scan = _required(scanId).copyWith(
       status: ScanStatus.needsConfirmation,
@@ -534,6 +543,124 @@ class MockInventoryRepository implements InventoryRepository {
     final scan = _scans[scanId];
     if (scan == null) throw StateError('Scan not found.');
     return scan;
+  }
+}
+
+class ApiInventoryRepository implements InventoryRepository {
+  ApiInventoryRepository({
+    required AppConfig config,
+    required AuthController authController,
+    http.Client? client,
+  }) : _authController = authController,
+       _client = client ?? http.Client(),
+       _config = config;
+
+  final AuthController _authController;
+  final http.Client _client;
+  final AppConfig _config;
+
+  Uri _uri(String path) => Uri.parse('${_config.apiBaseUrl}$path');
+
+  Map<String, String> get _headers {
+    final token = _authController.value.session?.accessToken;
+    return {
+      if (token != null) HttpHeaders.authorizationHeader: 'Bearer $token',
+      HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+    };
+  }
+
+  @override
+  Future<InventoryScan> createDraft({required TeacherProfile profile}) async {
+    final response = await _client.post(
+      _uri('/inventory/scans'),
+      headers: _headers,
+      body: jsonEncode({
+        'subject': profile.subjects.firstOrNull,
+        'gradeBand': profile.gradeBands.firstOrNull,
+        'classLabel': profile.classLabels.firstOrNull,
+        'topic': profile.defaultTopic,
+      }),
+    );
+    return _scanFromResponse(response);
+  }
+
+  @override
+  Future<InventoryScan> attachImages(
+    String scanId,
+    List<ScanImage> images,
+  ) async {
+    final scan = await getScan(scanId);
+    if (scan == null) throw StateError('Scan not found.');
+    return scan.copyWith(status: ScanStatus.uploaded, images: images);
+  }
+
+  @override
+  Future<InventoryScan> analyze(
+    String scanId, {
+    List<ScanImage> images = const [],
+  }) async {
+    final encodedImages = <Map<String, String>>[];
+    for (final image in images) {
+      final bytes = await File(image.path).readAsBytes();
+      encodedImages.add({
+        'mimeType': _mimeTypeForPath(image.path),
+        'dataBase64': base64Encode(bytes),
+      });
+    }
+    final response = await _client.post(
+      _uri('/inventory/scans/$scanId/analyze'),
+      headers: _headers,
+      body: jsonEncode({'images': encodedImages}),
+    );
+    return _scanFromResponse(response);
+  }
+
+  @override
+  Future<InventoryScan?> getScan(String scanId) async {
+    final response = await _client.get(
+      _uri('/inventory/scans/$scanId'),
+      headers: _headers,
+    );
+    if (response.statusCode == 404) return null;
+    return _scanFromResponse(response);
+  }
+
+  @override
+  Future<InventoryScan> updateItems(
+    String scanId,
+    List<DetectedItem> items,
+  ) async {
+    final response = await _client.patch(
+      _uri('/inventory/scans/$scanId/items'),
+      headers: _headers,
+      body: jsonEncode({'items': items.map((item) => item.toJson()).toList()}),
+    );
+    return _scanFromResponse(response);
+  }
+
+  @override
+  Future<InventoryScan> confirm(String scanId) async {
+    final response = await _client.post(
+      _uri('/inventory/scans/$scanId/confirm'),
+      headers: _headers,
+    );
+    return _scanFromResponse(response);
+  }
+
+  InventoryScan _scanFromResponse(http.Response response) {
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw StateError('Inventory request failed: ${response.statusCode}');
+    }
+    return InventoryScan.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  String _mimeTypeForPath(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
   }
 }
 

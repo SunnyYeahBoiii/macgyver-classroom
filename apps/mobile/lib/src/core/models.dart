@@ -109,6 +109,8 @@ class ScanImage {
   final String id;
   final String source;
   final String path;
+
+  Map<String, dynamic> toJson() => {'id': id, 'source': source, 'path': path};
 }
 
 class DetectedItem {
@@ -119,6 +121,9 @@ class DetectedItem {
     required this.unit,
     required this.confidence,
     required this.evidence,
+    this.rawLabel,
+    this.canonicalName,
+    this.evidenceDetails = const [],
     this.notes = '',
     this.safetyFlags = const [],
     this.removed = false,
@@ -130,6 +135,9 @@ class DetectedItem {
   final String unit;
   final double confidence;
   final String evidence;
+  final String? rawLabel;
+  final String? canonicalName;
+  final List<String> evidenceDetails;
   final String notes;
   final List<String> safetyFlags;
   final bool removed;
@@ -147,10 +155,64 @@ class DetectedItem {
     unit: unit ?? this.unit,
     confidence: confidence,
     evidence: evidence,
+    rawLabel: rawLabel,
+    canonicalName: canonicalName,
+    evidenceDetails: evidenceDetails,
     notes: notes ?? this.notes,
     safetyFlags: safetyFlags,
     removed: removed ?? this.removed,
   );
+
+  factory DetectedItem.fromJson(Map<String, dynamic> json) {
+    final quantity = json['quantityEstimate'] ?? json['quantity'];
+    final evidence = json['evidence'];
+    final evidenceDetails = evidence is List
+        ? evidence.whereType<String>().toList()
+        : [
+            if (evidence is String && evidence.trim().isNotEmpty)
+              evidence.trim(),
+          ];
+    return DetectedItem(
+      id: json['id'] as String? ?? json['rawLabel'] as String? ?? 'item',
+      label:
+          json['displayName'] as String? ??
+          json['canonicalName'] as String? ??
+          json['rawLabel'] as String? ??
+          'Vật liệu',
+      quantity: quantity is num ? quantity.round().clamp(1, 999) : 1,
+      unit: json['unit'] as String? ?? 'cái',
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+      evidence: evidenceDetails.join(' '),
+      rawLabel: json['rawLabel'] as String?,
+      canonicalName: json['canonicalName'] as String?,
+      evidenceDetails: evidenceDetails,
+      notes: json['notes'] as String? ?? '',
+      safetyFlags:
+          (json['safetyFlags'] as List?)?.whereType<String>().toList() ??
+          const [],
+      removed: json['removed'] as bool? ?? false,
+    );
+  }
+
+  List<String> get evidenceList {
+    if (evidenceDetails.isNotEmpty) return List.unmodifiable(evidenceDetails);
+    final trimmedEvidence = evidence.trim();
+    return trimmedEvidence.isEmpty ? const [] : [trimmedEvidence];
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'rawLabel': rawLabel ?? label,
+    'canonicalName': canonicalName,
+    'displayName': label,
+    'quantityEstimate': quantity,
+    'unit': unit,
+    'confidence': confidence,
+    'evidence': evidenceList,
+    'notes': notes,
+    'safetyFlags': safetyFlags,
+    'removed': removed,
+  };
 }
 
 class InventoryScan {
@@ -199,7 +261,58 @@ class InventoryScan {
     classLabel: classLabel ?? this.classLabel,
     errorMessage: errorMessage,
   );
+
+  factory InventoryScan.fromJson(Map<String, dynamic> json) => InventoryScan(
+    id: json['id'] as String,
+    status: _scanStatusFromJson(json['status'] as String?),
+    images:
+        (json['images'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(
+              (image) => ScanImage(
+                id: image['id'] as String? ?? image['path'] as String? ?? '',
+                source: image['source'] as String? ?? 'api',
+                path: image['path'] as String? ?? '',
+              ),
+            )
+            .toList() ??
+        const [],
+    detectedItems:
+        (json['detectedItems'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(DetectedItem.fromJson)
+            .toList() ??
+        const [],
+    subject: json['subject'] as String? ?? 'Science',
+    gradeBand: json['gradeBand'] as String? ?? 'Grade 8',
+    topic: json['topic'] as String? ?? 'Forces and motion',
+    classLabel: json['classLabel'] as String? ?? 'Pilot class',
+    errorMessage: json['errorMessage'] as String?,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'status': status.name,
+    'images': images.map((image) => image.toJson()).toList(),
+    'detectedItems': detectedItems.map((item) => item.toJson()).toList(),
+    'subject': subject,
+    'gradeBand': gradeBand,
+    'topic': topic,
+    'classLabel': classLabel,
+    'errorMessage': errorMessage,
+  };
 }
+
+ScanStatus _scanStatusFromJson(String? value) => switch (value) {
+  'CREATED' || 'created' => ScanStatus.created,
+  'UPLOADING' || 'uploading' => ScanStatus.uploading,
+  'UPLOADED' || 'uploaded' => ScanStatus.uploaded,
+  'ANALYZING' || 'analyzing' => ScanStatus.analyzing,
+  'NEEDS_CONFIRMATION' || 'needsConfirmation' => ScanStatus.needsConfirmation,
+  'CONFIRMED' || 'confirmed' => ScanStatus.confirmed,
+  'FAILED' || 'failed' => ScanStatus.failed,
+  _ => ScanStatus.created,
+};
 
 class ExperimentSuggestion {
   const ExperimentSuggestion({

@@ -96,10 +96,9 @@ class _ShellScaffold extends StatelessWidget {
         preferredSize: const Size.fromHeight(76),
         child: DecoratedBox(
           decoration: const BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment.topLeft,
-              radius: 1.4,
-              colors: [Color(0xFFEAF3E5), McColors.appBg],
+            color: McColors.appBg,
+            border: Border(
+              bottom: BorderSide(color: McColors.border, width: .5),
             ),
           ),
           child: SafeArea(
@@ -130,16 +129,7 @@ class _TopBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .9),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: McColors.border),
-            ),
-            child: const Icon(Icons.science_outlined, color: McColors.green),
-          ),
+          const McBrandMark(),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -150,7 +140,7 @@ class _TopBar extends StatelessWidget {
                   style: TextStyle(
                     color: McColors.muted,
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 Text(
@@ -200,6 +190,11 @@ class _BottomNavigation extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
                   child: NavigationBar(
+                    height: 64,
+                    backgroundColor: McColors.screen,
+                    indicatorColor: McColors.primarySoft,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
                     selectedIndex: selectedIndex,
                     onDestinationSelected: onDestinationSelected,
                     labelBehavior:

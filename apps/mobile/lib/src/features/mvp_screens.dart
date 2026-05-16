@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
 import 'package:go_router/go_router.dart';
 
 import '../app/app_bootstrap.dart';
@@ -39,24 +40,14 @@ class _SignInScreenState extends State<SignInScreen> {
     final deps = AppScope.of(context);
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topLeft,
-            radius: 1.4,
-            colors: [Color(0xFFEAF3E5), McColors.appBg],
-          ),
-        ),
+        decoration: const BoxDecoration(color: McColors.appBg),
         child: SafeArea(
           child: McResponsiveFrame(
             child: McScroll(
               padding: const EdgeInsets.fromLTRB(18, 40, 18, 24),
               children: [
                 const SizedBox(height: 20),
-                const Icon(
-                  Icons.science_outlined,
-                  color: McColors.green,
-                  size: 58,
-                ),
+                const Align(child: McBrandMark(size: 64)),
                 Text(
                   'MacGyver Classroom',
                   style: Theme.of(context).textTheme.headlineMedium,
@@ -596,6 +587,212 @@ class _ChoiceRow extends StatelessWidget {
   }
 }
 
+class CameraCaptureScreen extends StatefulWidget {
+  const CameraCaptureScreen({super.key});
+
+  @override
+  State<CameraCaptureScreen> createState() => _CameraCaptureScreenState();
+}
+
+class _CameraCaptureScreenState extends State<CameraCaptureScreen>
+    with WidgetsBindingObserver {
+  CameraController? _controller;
+  CameraDescription? _camera;
+  String? _error;
+  var _capturing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initialize();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    if (state == AppLifecycleState.inactive) {
+      controller.dispose();
+    } else if (state == AppLifecycleState.resumed && _camera != null) {
+      _initializeController(_camera!);
+    }
+  }
+
+  Future<void> _initialize() async {
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        if (mounted) setState(() => _error = 'No camera is available.');
+        return;
+      }
+      final camera = cameras.firstWhere(
+        (camera) => camera.lensDirection == CameraLensDirection.back,
+        orElse: () => cameras.first,
+      );
+      _camera = camera;
+      await _initializeController(camera);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Camera preview is unavailable.');
+      }
+    }
+  }
+
+  Future<void> _initializeController(CameraDescription camera) async {
+    final controller = CameraController(
+      camera,
+      ResolutionPreset.medium,
+      enableAudio: false,
+      imageFormatGroup: ImageFormatGroup.jpeg,
+    );
+    await _controller?.dispose();
+    _controller = controller;
+    try {
+      await controller.initialize();
+      if (mounted) setState(() => _error = null);
+    } on CameraException catch (error) {
+      if (mounted) {
+        setState(() => _error = error.description ?? 'Camera access failed.');
+      }
+    }
+  }
+
+  Future<void> _capture() async {
+    if (_capturing) return;
+    setState(() => _capturing = true);
+    try {
+      final controller = _controller;
+      if (controller != null && controller.value.isInitialized) {
+        final file = await controller.takePicture();
+        if (mounted) {
+          context.pop(
+            ScanImage(id: file.name, source: 'camera', path: file.path),
+          );
+        }
+        return;
+      }
+
+      final fallback = await AppScope.of(
+        context,
+      ).imageCaptureService.captureCamera();
+      if (mounted) context.pop(fallback);
+    } finally {
+      if (mounted) setState(() => _capturing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  IconButton(
+                    key: const ValueKey('camera_close'),
+                    color: Colors.white,
+                    tooltip: 'Close camera',
+                    onPressed: () => context.pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      'Camera Preview',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: AspectRatio(
+                  aspectRatio: 3 / 4,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(McRadius.md),
+                    child: ColoredBox(
+                      color: Colors.black,
+                      child:
+                          controller != null && controller.value.isInitialized
+                          ? CameraPreview(controller)
+                          : _CameraFallbackFrame(error: _error),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
+              child: FilledButton.icon(
+                key: const ValueKey('camera_capture'),
+                onPressed: _capturing ? null : _capture,
+                icon: const Icon(Icons.camera_alt),
+                label: Text(_capturing ? 'Capturing...' : 'Capture'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CameraFallbackFrame extends StatelessWidget {
+  const _CameraFallbackFrame({required this.error});
+
+  final String? error;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.white24),
+        color: const Color(0xFF111111),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.photo_camera_outlined,
+                color: Colors.white,
+                size: 52,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                error ?? 'Camera is starting...',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class InventoryCaptureScreen extends StatefulWidget {
   const InventoryCaptureScreen({super.key});
 
@@ -648,8 +845,8 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
     }
   }
 
-  Future<List<ScanImage>> _captureCamera(ImageCaptureService service) async {
-    final image = await service.captureCamera();
+  Future<List<ScanImage>> _captureCamera() async {
+    final image = await context.push<ScanImage>('/scan/camera');
     return image == null ? const <ScanImage>[] : [image];
   }
 
@@ -710,8 +907,7 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
                       key: const ValueKey('scan_camera'),
                       label: 'Camera',
                       icon: Icons.camera_alt_outlined,
-                      onPressed: () =>
-                          _attach(_captureCamera(deps.imageCaptureService)),
+                      onPressed: () => _attach(_captureCamera()),
                     ),
                     McButton(
                       key: const ValueKey('scan_gallery'),
@@ -741,7 +937,7 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
                               {'scan_id': scan.id},
                             );
                             final analyzed = await deps.inventoryRepository
-                                .analyze(scan.id);
+                                .analyze(scan.id, images: scan.images);
                             if (context.mounted) {
                               context.go('/inventory/${analyzed.id}/review');
                             }
@@ -777,11 +973,34 @@ class InventoryReviewScreen extends StatefulWidget {
 
 class _InventoryReviewScreenState extends State<InventoryReviewScreen> {
   InventoryScan? _scan;
+  String? _loadedScanId;
 
-  Future<void> _load() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant InventoryReviewScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scanId != widget.scanId) {
+      _scan = null;
+      _loadedScanId = null;
+      _loadIfNeeded();
+    }
+  }
+
+  void _loadIfNeeded() {
+    if (_loadedScanId == widget.scanId) return;
+    _loadedScanId = widget.scanId;
+    _load(widget.scanId);
+  }
+
+  Future<void> _load(String scanId) async {
     final deps = AppScope.of(context);
-    final scan = await deps.inventoryRepository.getScan(widget.scanId);
-    if (mounted && scan != _scan) {
+    final scan = await deps.inventoryRepository.getScan(scanId);
+    if (mounted && widget.scanId == scanId && scan != _scan) {
       setState(() => _scan = scan);
     }
   }
@@ -802,7 +1021,6 @@ class _InventoryReviewScreenState extends State<InventoryReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    _load();
     final scan = _scan;
     return MacGyverShell(
       title: 'Confirm Inventory',
@@ -847,6 +1065,9 @@ class _InventoryReviewScreenState extends State<InventoryReviewScreen> {
                   unit: 'pieces',
                   confidence: 1,
                   evidence: 'Added manually by teacher.',
+                  evidenceDetails: const ['Added manually by teacher.'],
+                  rawLabel: 'Paper clips',
+                  canonicalName: null,
                 );
                 _saveItems([...scan.detectedItems, item]);
               },
@@ -983,17 +1204,39 @@ class InventoryConfirmScreen extends StatefulWidget {
 
 class _InventoryConfirmScreenState extends State<InventoryConfirmScreen> {
   InventoryScan? _scan;
+  String? _loadedScanId;
 
-  Future<void> _load() async {
-    final scan = await AppScope.of(
-      context,
-    ).inventoryRepository.getScan(widget.scanId);
-    if (mounted && scan != _scan) setState(() => _scan = scan);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(covariant InventoryConfirmScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scanId != widget.scanId) {
+      _scan = null;
+      _loadedScanId = null;
+      _loadIfNeeded();
+    }
+  }
+
+  void _loadIfNeeded() {
+    if (_loadedScanId == widget.scanId) return;
+    _loadedScanId = widget.scanId;
+    _load(widget.scanId);
+  }
+
+  Future<void> _load(String scanId) async {
+    final scan = await AppScope.of(context).inventoryRepository.getScan(scanId);
+    if (mounted && widget.scanId == scanId && scan != _scan) {
+      setState(() => _scan = scan);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    _load();
     final scan = _scan;
     return MacGyverShell(
       title: 'Inventory Snapshot',
@@ -1289,9 +1532,9 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                   const SizedBox(height: 12),
                   Text(detail.reasoning),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'Safety notes',
-                    style: TextStyle(fontWeight: FontWeight.w800),
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const Text(
                     'Use no sharp cutting tools. Keep magnets away from electronics. Teacher confirms material condition before export.',

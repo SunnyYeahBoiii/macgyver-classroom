@@ -1,28 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class McColors {
   const McColors._();
 
-  static const appBg = Color(0xFFF4EFE4);
-  static const screen = Color(0xFFF8FAF7);
-  static const heading = Color(0xFF1F2916);
-  static const ink = Color(0xFF172718);
-  static const muted = Color(0xFF5C6B5F);
-  static const green = Color(0xFF355B31);
-  static const softGreen = Color(0xFF79965E);
-  static const soil = Color(0xFFCD924A);
-  static const interactive = Color(0xFFEEF4EA);
-  static const interactiveHover = Color(0xFFDDE8D3);
-  static const danger = Color(0xFF9F2D22);
-  static const warning = Color(0xFFA05B14);
-  static const border = Color(0x1F1F2916);
+  static const appBg = Color(0xFFFAFAF7);
+  static const screen = Color(0xFFFFFFFF);
+  static const subtle = Color(0xFFF5F2EA);
+  static const heading = Color(0xFF2C2C2A);
+  static const ink = Color(0xFF2C2C2A);
+  static const muted = Color(0xFF5F5E5A);
+  static const subtleInk = Color(0xFF9A9994);
+  static const primary = Color(0xFF1A24A8);
+  static const primaryHover = Color(0xFF141C8A);
+  static const primarySoft = Color(0xFFE8EAF8);
+  static const accent = Color(0xFFF5B945);
+  static const accentSoft = Color(0xFFFDF1D9);
+  static const earth = Color(0xFF7A5B14);
+  static const tierGreen = Color(0xFF3B6D11);
+  static const tierGreenSoft = Color(0xFFEAF3DE);
+  static const warning = Color(0xFFB47514);
+  static const warningSoft = Color(0xFFFDF1D9);
+  static const danger = Color(0xFFA32D2D);
+  static const dangerSoft = Color(0xFFFCEBEB);
+  static const border = Color(0xFFE5E2D7);
+  static const borderStrong = Color(0xFFC8C5B6);
+
+  static const green = primary;
+  static const softGreen = primarySoft;
+  static const soil = earth;
+  static const interactive = primarySoft;
+  static const interactiveHover = subtle;
 }
 
 class McSpacing {
   const McSpacing._();
 
-  static const xs = 6.0;
-  static const sm = 10.0;
+  static const xs = 4.0;
+  static const sm = 8.0;
   static const md = 16.0;
   static const lg = 24.0;
   static const xl = 32.0;
@@ -30,68 +45,101 @@ class McSpacing {
   static const maxTabletWidth = 720.0;
 }
 
+class McRadius {
+  const McRadius._();
+
+  static const xs = 4.0;
+  static const sm = 6.0;
+  static const md = 8.0;
+  static const lg = 12.0;
+  static const xl = 16.0;
+}
+
 class McTheme {
   const McTheme._();
 
   static ThemeData light() {
     final scheme = ColorScheme.fromSeed(
-      seedColor: McColors.green,
+      seedColor: McColors.primary,
       brightness: Brightness.light,
-      primary: McColors.green,
-      secondary: McColors.soil,
-      surface: Colors.white,
+      primary: McColors.primary,
+      secondary: McColors.accent,
+      surface: McColors.screen,
       error: McColors.danger,
     );
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
       scaffoldBackgroundColor: McColors.appBg,
-      fontFamily: 'System',
+      fontFamily: 'Inter',
       textTheme: const TextTheme(
         headlineMedium: TextStyle(
           color: McColors.heading,
-          fontSize: 24,
-          fontWeight: FontWeight.w800,
-          height: 1.1,
+          fontSize: 28,
+          fontWeight: FontWeight.w600,
+          height: 1.12,
         ),
         titleLarge: TextStyle(
           color: McColors.heading,
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
+          fontSize: 22,
+          fontWeight: FontWeight.w600,
+          height: 1.18,
         ),
         titleMedium: TextStyle(
           color: McColors.heading,
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
+          fontSize: 18,
+          fontWeight: FontWeight.w500,
+          height: 1.22,
         ),
-        bodyLarge: TextStyle(color: McColors.ink, fontSize: 16, height: 1.35),
+        bodyLarge: TextStyle(color: McColors.ink, fontSize: 15, height: 1.4),
         bodyMedium: TextStyle(color: McColors.ink, fontSize: 14, height: 1.35),
         labelMedium: TextStyle(
           color: McColors.muted,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: .8,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          letterSpacing: .88,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: McColors.screen,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: McColors.border),
+          borderRadius: BorderRadius.circular(McRadius.sm),
+          borderSide: const BorderSide(color: McColors.border, width: .5),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: McColors.border),
+          borderRadius: BorderRadius.circular(McRadius.sm),
+          borderSide: const BorderSide(color: McColors.border, width: .5),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: const BorderSide(color: McColors.green, width: 1.5),
+          borderRadius: BorderRadius.circular(McRadius.sm),
+          borderSide: const BorderSide(color: McColors.primary, width: 1.2),
         ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: McColors.screen,
+        selectedColor: McColors.primarySoft,
+        disabledColor: McColors.subtle,
+        checkmarkColor: McColors.primary,
+        side: const BorderSide(color: McColors.border, width: .5),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(McRadius.sm),
+        ),
+        labelStyle: const TextStyle(
+          color: McColors.ink,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        secondaryLabelStyle: const TextStyle(
+          color: McColors.primary,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: McColors.heading,
+        backgroundColor: McColors.ink,
         contentTextStyle: TextStyle(color: Colors.white),
       ),
     );
@@ -140,16 +188,9 @@ class McCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final decoratedCard = DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .92),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: McColors.border),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1431491E),
-            blurRadius: 22,
-            offset: Offset(0, 12),
-          ),
-        ],
+        color: McColors.screen,
+        borderRadius: BorderRadius.circular(McRadius.md),
+        border: Border.all(color: McColors.border, width: .5),
       ),
       child: Padding(padding: padding, child: child),
     );
@@ -187,9 +228,9 @@ class McButton extends StatelessWidget {
     final background = warning
         ? McColors.warning
         : secondary
-        ? Colors.white
-        : McColors.green;
-    final foreground = secondary ? McColors.green : Colors.white;
+        ? McColors.screen
+        : McColors.primary;
+    final foreground = secondary ? McColors.primary : Colors.white;
     final button = FilledButton.icon(
       onPressed: onPressed,
       icon: Icon(icon ?? Icons.arrow_forward_rounded),
@@ -203,12 +244,12 @@ class McButton extends StatelessWidget {
         minimumSize: const Size.fromHeight(48),
         backgroundColor: background,
         foregroundColor: foreground,
-        disabledBackgroundColor: McColors.interactiveHover,
+        disabledBackgroundColor: McColors.subtle,
         disabledForegroundColor: McColors.muted,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(McRadius.sm),
           side: secondary
-              ? const BorderSide(color: McColors.border)
+              ? const BorderSide(color: McColors.border, width: .5)
               : BorderSide.none,
         ),
       ),
@@ -248,10 +289,10 @@ class McBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = switch (tone) {
-      McBadgeTone.good => (McColors.green, const Color(0xFFEAF3E5)),
-      McBadgeTone.warning => (McColors.warning, const Color(0xFFFFF3DF)),
-      McBadgeTone.danger => (McColors.danger, const Color(0xFFFFEAE6)),
-      McBadgeTone.neutral => (McColors.muted, McColors.interactive),
+      McBadgeTone.good => (McColors.tierGreen, McColors.tierGreenSoft),
+      McBadgeTone.warning => (McColors.warning, McColors.warningSoft),
+      McBadgeTone.danger => (McColors.danger, McColors.dangerSoft),
+      McBadgeTone.neutral => (McColors.muted, McColors.subtle),
     };
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -266,11 +307,14 @@ class McBadge extends StatelessWidget {
           child: Tooltip(
             message: label,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: colors.$2,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: colors.$1.withValues(alpha: .18)),
+                borderRadius: BorderRadius.circular(McRadius.xs),
+                border: Border.all(
+                  color: colors.$1.withValues(alpha: .2),
+                  width: .5,
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -287,8 +331,8 @@ class McBadge extends StatelessWidget {
                       softWrap: false,
                       style: TextStyle(
                         color: colors.$1,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
@@ -387,7 +431,7 @@ class McEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: McColors.softGreen, size: 42),
+          Icon(icon, color: McColors.primary, size: 42),
           const SizedBox(height: 10),
           Text(
             title,
@@ -405,6 +449,30 @@ class McEmptyState extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class McBrandMark extends StatelessWidget {
+  const McBrandMark({this.size = 44, super.key});
+
+  static const assetPath = 'assets/macgyver.svg';
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'MacGyver Classroom',
+      image: true,
+      child: SizedBox.square(
+        dimension: size,
+        child: SvgPicture.asset(
+          assetPath,
+          fit: BoxFit.contain,
+          semanticsLabel: 'MacGyver Classroom',
+        ),
       ),
     );
   }

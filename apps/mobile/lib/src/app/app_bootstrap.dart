@@ -50,7 +50,12 @@ Future<AppDependencies> createAppDependencies({
     config: effectiveConfig,
     authController: authController,
     profileRepository: MockProfileRepository(),
-    inventoryRepository: MockInventoryRepository(),
+    inventoryRepository: effectiveConfig.useMockBackend
+        ? MockInventoryRepository()
+        : ApiInventoryRepository(
+            authController: authController,
+            config: effectiveConfig,
+          ),
     experimentRepository: MockExperimentRepository(
       lessonRepository: lessonRepository,
     ),

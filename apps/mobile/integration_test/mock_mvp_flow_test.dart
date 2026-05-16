@@ -81,6 +81,8 @@ void main() {
 
     await _tapKey(tester, 'home_start_scan');
     await _tapKey(tester, 'scan_camera');
+    await _expectTextVisible(tester, 'Camera Preview');
+    await _tapKey(tester, 'camera_capture');
     await _tapKey(tester, 'scan_analyze');
     await _expectTextVisible(tester, 'Detected materials');
 
