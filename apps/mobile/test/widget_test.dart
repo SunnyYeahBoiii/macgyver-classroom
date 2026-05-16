@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/src/app/app_bootstrap.dart';
 import 'package:mobile/src/app/app_config.dart';
 import 'package:mobile/src/core/backend/repositories.dart';
+import 'package:mobile/src/core/media/image_picker_capture_service.dart';
 
 const _phoneViewport = Size(390, 844);
 
@@ -10,6 +11,7 @@ Future<MacGyverApp> _testApp() async {
   final deps = await createAppDependencies(
     config: const AppConfig(backendMode: BackendMode.mock, apiBaseUrl: ''),
     sessionStore: MemorySessionStore(),
+    imageCaptureService: FakeImageCaptureService(),
   );
   return MacGyverApp(dependencies: deps);
 }
@@ -130,6 +132,14 @@ Future<void> _completeGeneratedLessonFlow(WidgetTester tester) async {
 }
 
 void main() {
+  test('app dependencies use device image capture by default', () async {
+    final deps = await createAppDependencies(
+      sessionStore: MemorySessionStore(),
+    );
+
+    expect(deps.imageCaptureService, isA<ImagePickerCaptureService>());
+  });
+
   testWidgets('signed out users see sign-in instead of Flutter counter', (
     tester,
   ) async {

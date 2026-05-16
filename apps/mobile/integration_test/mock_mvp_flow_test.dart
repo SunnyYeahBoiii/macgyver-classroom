@@ -9,6 +9,7 @@ Future<MacGyverApp> _testApp() async {
   final deps = await createAppDependencies(
     config: const AppConfig(backendMode: BackendMode.mock, apiBaseUrl: ''),
     sessionStore: MemorySessionStore(),
+    imageCaptureService: FakeImageCaptureService(),
   );
   return MacGyverApp(dependencies: deps);
 }

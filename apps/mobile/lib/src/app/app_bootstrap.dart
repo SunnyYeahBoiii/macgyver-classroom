@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/backend/repositories.dart';
+import '../core/media/image_picker_capture_service.dart';
 import 'app_config.dart';
 
 export 'macgyver_app.dart';
@@ -34,6 +35,7 @@ class AppDependencies {
 Future<AppDependencies> createAppDependencies({
   AppConfig? config,
   SessionStore? sessionStore,
+  ImageCaptureService? imageCaptureService,
 }) async {
   final effectiveConfig = config ?? AppConfig.fromEnvironment();
   final lessonRepository = MockLessonRepository();
@@ -56,7 +58,7 @@ Future<AppDependencies> createAppDependencies({
     exportRepository: ExportRepository(),
     feedbackRepository: FeedbackRepository(),
     analyticsRepository: MockAnalyticsRepository(),
-    imageCaptureService: FakeImageCaptureService(),
+    imageCaptureService: imageCaptureService ?? ImagePickerCaptureService(),
   );
   await authController.bootstrap();
   return dependencies;

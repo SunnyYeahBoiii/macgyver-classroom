@@ -648,6 +648,11 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
     }
   }
 
+  Future<List<ScanImage>> _captureCamera(ImageCaptureService service) async {
+    final image = await service.captureCamera();
+    return image == null ? const <ScanImage>[] : [image];
+  }
+
   @override
   Widget build(BuildContext context) {
     _ensureScan();
@@ -676,7 +681,7 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
                     icon: Icons.photo_camera_outlined,
                     title: 'No classroom photo yet',
                     message:
-                        'Use mock camera or gallery to seed the scan for demo.',
+                        'Use Camera or Gallery to add classroom object photos.',
                   )
                 else
                   Wrap(
@@ -686,7 +691,7 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
                       for (final image in scan.images)
                         Chip(
                           avatar: const Icon(Icons.image_outlined),
-                          label: Text(image.path.replaceFirst('mock://', '')),
+                          label: Text(image.id),
                         ),
                     ],
                   ),
@@ -705,13 +710,8 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
                       key: const ValueKey('scan_camera'),
                       label: 'Camera',
                       icon: Icons.camera_alt_outlined,
-                      onPressed: () async {
-                        final image = await deps.imageCaptureService
-                            .captureCamera();
-                        if (image != null) {
-                          await _attach(Future.value([image]));
-                        }
-                      },
+                      onPressed: () =>
+                          _attach(_captureCamera(deps.imageCaptureService)),
                     ),
                     McButton(
                       key: const ValueKey('scan_gallery'),
