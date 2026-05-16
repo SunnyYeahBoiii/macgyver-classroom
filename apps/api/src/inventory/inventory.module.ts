@@ -4,8 +4,10 @@ import { InventoryScansController } from './inventory-scans.controller';
 import { InventoryRepository } from './inventory.repository';
 import { InventoryService } from './inventory.service';
 import { ScanAnalysisService } from './scan-analysis.service';
+import { AiModule } from '../ai/ai.module';
 
 @Module({
+  imports: [AiModule],
   controllers: [InventoryScansController, ConfirmedItemsController],
   providers: [InventoryService, ScanAnalysisService, InventoryRepository],
   exports: [InventoryService, ScanAnalysisService],
