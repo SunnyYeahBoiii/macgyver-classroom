@@ -2027,8 +2027,81 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
   }
 }
 
-class AccountScreen extends StatelessWidget {
+class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
+
+  @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen> {
+  final _currentPassword = TextEditingController();
+  final _newPassword = TextEditingController();
+  final _confirmPassword = TextEditingController();
+  String? _passwordError;
+  String? _passwordSuccess;
+  var _changingPassword = false;
+
+  @override
+  void dispose() {
+    _currentPassword.dispose();
+    _newPassword.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> _changePassword() async {
+    final currentPassword = _currentPassword.text;
+    final newPassword = _newPassword.text;
+    final confirmPassword = _confirmPassword.text;
+
+    setState(() {
+      _passwordError = null;
+      _passwordSuccess = null;
+    });
+
+    if (currentPassword.isEmpty ||
+        newPassword.isEmpty ||
+        confirmPassword.isEmpty) {
+      setState(() => _passwordError = 'All password fields are required.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setState(
+        () => _passwordError = 'Password must be at least 8 characters.',
+      );
+      return;
+    }
+    if (newPassword != confirmPassword) {
+      setState(() => _passwordError = 'New passwords do not match.');
+      return;
+    }
+
+    setState(() => _changingPassword = true);
+    try {
+      final deps = AppScope.of(context);
+      await deps.authController.changePassword(
+        currentPassword: currentPassword,
+        newPassword: newPassword,
+      );
+      deps.analyticsRepository.track('password_changed');
+      _currentPassword.clear();
+      _newPassword.clear();
+      _confirmPassword.clear();
+      if (mounted) setState(() => _passwordSuccess = 'Password updated.');
+    } on AuthException catch (error) {
+      if (mounted) setState(() => _passwordError = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _passwordError =
+              'Could not update password. Check details and try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _changingPassword = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2038,34 +2111,140 @@ class AccountScreen extends StatelessWidget {
       activeRoute: '/account',
       child: McScroll(
         children: [
+          const McSectionHeader(eyebrow: 'Account', title: 'User profile'),
           McCard(
             child: ValueListenableBuilder<AuthState>(
               valueListenable: deps.authController,
-              builder: (context, state, _) => Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    state.session?.email ?? 'Signed out',
-                    style: Theme.of(context).textTheme.titleLarge,
+              builder: (context, state, _) {
+                final session = state.session;
+                return Column(
+                  children: [
+                    _AccountDetailRow(
+                      label: 'Full name',
+                      value: session?.fullName ?? 'Signed out',
+                      icon: Icons.badge_outlined,
+                    ),
+                    const SizedBox(height: 12),
+                    _AccountDetailRow(
+                      label: 'Email',
+                      value: session?.email ?? 'Unavailable',
+                      icon: Icons.mail_outline,
+                    ),
+                    const SizedBox(height: 12),
+                    _AccountDetailRow(
+                      label: 'Role',
+                      value: session?.role == 'teacher'
+                          ? 'Teacher'
+                          : session?.role ?? 'Unavailable',
+                      icon: Icons.school_outlined,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const McSectionHeader(eyebrow: 'Security', title: 'Change password'),
+          McCard(
+            child: Column(
+              children: [
+                TextField(
+                  key: const ValueKey('account_current_password'),
+                  controller: _currentPassword,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Current password',
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Teacher role is active. School admin and content admin roles are model-ready for later slices.',
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const ValueKey('account_new_password'),
+                  controller: _newPassword,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'New password'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  key: const ValueKey('account_confirm_password'),
+                  controller: _confirmPassword,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Confirm new password',
                   ),
-                  const SizedBox(height: 16),
-                  McButton(
-                    key: const ValueKey('account_sign_out'),
-                    label: 'Sign out',
-                    icon: Icons.logout,
-                    warning: true,
-                    onPressed: () => deps.authController.signOut(),
+                ),
+                if (_passwordError != null || _passwordSuccess != null) ...[
+                  const SizedBox(height: 12),
+                  McBadge(
+                    label: _passwordSuccess ?? _passwordError!,
+                    tone: _passwordSuccess == null
+                        ? McBadgeTone.danger
+                        : McBadgeTone.good,
+                    icon: _passwordSuccess == null
+                        ? Icons.error_outline
+                        : Icons.check_circle_outline,
                   ),
                 ],
-              ),
+                const SizedBox(height: 16),
+                McButton(
+                  key: const ValueKey('account_change_password'),
+                  label: _changingPassword
+                      ? 'Updating password...'
+                      : 'Update password',
+                  icon: Icons.lock_reset,
+                  onPressed: _changingPassword ? null : _changePassword,
+                ),
+              ],
+            ),
+          ),
+          McCard(
+            child: McButton(
+              key: const ValueKey('account_sign_out'),
+              label: 'Sign out',
+              icon: Icons.logout,
+              warning: true,
+              onPressed: () => deps.authController.signOut(),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AccountDetailRow extends StatelessWidget {
+  const _AccountDetailRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context).textTheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: McColors.green),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: theme.labelMedium),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: theme.titleMedium,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

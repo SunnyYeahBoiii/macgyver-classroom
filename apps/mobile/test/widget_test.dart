@@ -187,6 +187,30 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
   });
 
+  testWidgets('account profile shows user fields and changes password', (
+    tester,
+  ) async {
+    await _pumpApp(tester);
+
+    await _tapKey(tester, 'sign_in_submit');
+    await _enterTextKey(tester, 'profile_school', 'Pilot Secondary School');
+    await _tapKey(tester, 'profile_save');
+    await _tapBottomNav(tester, 'Account');
+
+    await _expectVisibleText(tester, 'User profile');
+    await _expectVisibleText(tester, 'Full name');
+    await _expectVisibleText(tester, 'Linh Nguyen');
+    await _expectVisibleText(tester, 'Email');
+    await _expectVisibleText(tester, 'teacher@example.com');
+
+    await _enterTextKey(tester, 'account_current_password', 'password123');
+    await _enterTextKey(tester, 'account_new_password', 'newpassword123');
+    await _enterTextKey(tester, 'account_confirm_password', 'newpassword123');
+    await _tapKey(tester, 'account_change_password');
+
+    await _expectVisibleText(tester, 'Password updated.');
+  });
+
   testWidgets('mock happy path reaches generated lesson editor', (
     tester,
   ) async {
