@@ -1,36 +1,62 @@
-describe('bootstrap', () => {
-  beforeEach(() => {
-    jest.resetModules();
-    jest.clearAllMocks();
+import { ConfigService } from '@nestjs/config';
+import { ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import {
+  configureApp,
+  createNestApplication,
+  DEFAULT_SCAN_ANALYZE_JSON_BODY_LIMIT,
+  resolveScanAnalyzeJsonBodyLimit,
+  SCAN_ANALYZE_JSON_BODY_LIMIT_ENV,
+} from './main';
+
+describe('main bootstrap configuration', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
-  it('reads the listen port from ConfigService', async () => {
-    const configService = {
-      get: jest.fn().mockReturnValue(4567),
-    };
-    const app = {
-      get: jest.fn().mockReturnValue(configService),
-      listen: jest.fn().mockResolvedValue(undefined),
-    };
-    const create = jest.fn().mockResolvedValue(app);
+  it('configures a bounded default JSON body limit for scan analysis payloads', () => {
+    const configService = new ConfigService();
 
-    jest.doMock('@nestjs/core', () => ({
-      NestFactory: {
-        create,
-      },
-    }));
+    expect(resolveScanAnalyzeJsonBodyLimit(configService)).toBe(
+      DEFAULT_SCAN_ANALYZE_JSON_BODY_LIMIT,
+    );
+  });
 
-    jest.isolateModules(() => {
-      jest.requireActual('./main');
+  it('allows the JSON body limit to be overridden through env config', () => {
+    const configService = new ConfigService({
+      [SCAN_ANALYZE_JSON_BODY_LIMIT_ENV]: '20mb',
     });
-    await Promise.resolve();
-    await Promise.resolve();
 
-    expect(create).toHaveBeenCalledTimes(1);
-    expect(app.get).toHaveBeenCalledTimes(1);
-    const getCalls = app.get.mock.calls as Array<[{ name?: string }]>;
-    expect(getCalls[0]?.[0].name).toBe('ConfigService');
-    expect(configService.get).toHaveBeenCalledWith('PORT', 4000);
-    expect(app.listen).toHaveBeenCalledWith(4567);
+    expect(resolveScanAnalyzeJsonBodyLimit(configService)).toBe('20mb');
+  });
+
+  it('enables DTO validation globally before requests reach controllers', () => {
+    const app = {
+      useBodyParser: jest.fn(),
+      useGlobalPipes: jest.fn(),
+    };
+    const configService = new ConfigService();
+
+    configureApp(app as never, configService);
+
+    expect(app.useBodyParser).toHaveBeenCalledWith('json', {
+      limit: DEFAULT_SCAN_ANALYZE_JSON_BODY_LIMIT,
+    });
+    expect(app.useBodyParser).toHaveBeenCalledWith('urlencoded', {
+      extended: true,
+      limit: DEFAULT_SCAN_ANALYZE_JSON_BODY_LIMIT,
+    });
+    expect(app.useGlobalPipes).toHaveBeenCalledWith(expect.any(ValidationPipe));
+  });
+
+  it('disables Nest default body parser so the custom scan payload limit applies', async () => {
+    const app = {} as NestExpressApplication;
+    const createSpy = jest.spyOn(NestFactory, 'create').mockResolvedValue(app);
+
+    await expect(createNestApplication()).resolves.toBe(app);
+
+    expect(createSpy).toHaveBeenCalledWith(AppModule, { bodyParser: false });
   });
 });
