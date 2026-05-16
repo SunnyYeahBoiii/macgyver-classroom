@@ -33,10 +33,10 @@ GOOGLE_CLOUD_PROJECT=macgyver-classroom
 
 ```bash
 # Cài đặt dependencies
-npm install
+bun install
 
 # Chạy API server
-npm --workspace api run dev
+bun run dev
 ```
 
 ## Kiểm tra
