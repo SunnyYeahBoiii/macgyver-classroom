@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { VertexAI } from '@google-cloud/vertexai';
-import { GoogleAuth } from 'google-auth-library';
 import { ApiConfigService } from '../config/api-config.service';
 
 export interface DetectedItem {
@@ -51,17 +50,10 @@ export class GeminiVisionService {
       this.logger.log(`Project ID: ${projectId}`);
       this.logger.log(`Credentials: ${credentialsPath}`);
 
-      // Initialize GoogleAuth with service account
-      const auth = new GoogleAuth({
-        keyFilename: credentialsPath,
-        scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-      });
-
-      // Initialize Vertex AI
+      // Initialize Vertex AI (authentication via GOOGLE_APPLICATION_CREDENTIALS env var)
       this.vertexAI = new VertexAI({
         project: projectId,
         location: 'us-central1', // or 'asia-southeast1' for closer region
-        googleAuth: auth,
       });
 
       this.logger.log('Vertex AI initialized successfully');
