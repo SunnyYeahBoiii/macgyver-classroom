@@ -55,41 +55,63 @@ abstract class AuthRepository {
   Future<UserSession> signIn(String email, String password);
   Future<UserSession> register(String email, String password);
   Future<UserSession> refresh(String refreshToken);
+  Future<void> changePassword(
+    UserSession session,
+    String currentPassword,
+    String newPassword,
+  );
   Future<void> signOut(UserSession session);
 }
 
 class MockAuthRepository implements AuthRepository {
   int _counter = 0;
+  final _passwords = <String, String>{
+    'teacher@example.com': 'password123',
+    'ready@example.com': 'password123',
+  };
+
+  String _fullNameForEmail(String email) => switch (email) {
+    'teacher@example.com' => 'Linh Nguyen',
+    'ready@example.com' => 'Ready Teacher',
+    _ => email.split('@').first.replaceAll('.', ' '),
+  };
 
   @override
   Future<UserSession> signIn(String email, String password) async {
     await Future<void>.delayed(const Duration(milliseconds: 120));
-    if (password != 'password123' || !email.contains('@')) {
+    final normalizedEmail = email.trim();
+    final expectedPassword = _passwords[normalizedEmail] ?? 'password123';
+    if (password != expectedPassword || !normalizedEmail.contains('@')) {
       throw const AuthException(
         'INVALID_CREDENTIALS',
         'Use teacher@example.com / password123.',
       );
     }
+    _passwords.putIfAbsent(normalizedEmail, () => expectedPassword);
     return UserSession(
       userId: 'teacher-1',
-      email: email,
+      fullName: _fullNameForEmail(normalizedEmail),
+      email: normalizedEmail,
       accessToken: 'mock-access-${++_counter}',
       refreshToken: 'mock-refresh',
-      profileComplete: email == 'ready@example.com',
+      profileComplete: normalizedEmail == 'ready@example.com',
     );
   }
 
   @override
   Future<UserSession> register(String email, String password) async {
+    final normalizedEmail = email.trim();
     if (password.length < 8) {
       throw const AuthException(
         'WEAK_PASSWORD',
         'Password must be at least 8 characters.',
       );
     }
+    _passwords[normalizedEmail] = password;
     return UserSession(
       userId: 'teacher-new',
-      email: email,
+      fullName: _fullNameForEmail(normalizedEmail),
+      email: normalizedEmail,
       accessToken: 'mock-access-${++_counter}',
       refreshToken: 'mock-refresh',
       profileComplete: false,
@@ -103,11 +125,35 @@ class MockAuthRepository implements AuthRepository {
     }
     return UserSession(
       userId: 'teacher-1',
+      fullName: _fullNameForEmail('teacher@example.com'),
       email: 'teacher@example.com',
       accessToken: 'mock-access-${++_counter}',
       refreshToken: refreshToken,
       profileComplete: true,
     );
+  }
+
+  @override
+  Future<void> changePassword(
+    UserSession session,
+    String currentPassword,
+    String newPassword,
+  ) async {
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (newPassword.length < 8) {
+      throw const AuthException(
+        'WEAK_PASSWORD',
+        'Password must be at least 8 characters.',
+      );
+    }
+    final expectedPassword = _passwords[session.email] ?? 'password123';
+    if (currentPassword != expectedPassword) {
+      throw const AuthException(
+        'INVALID_PASSWORD',
+        'Current password is incorrect.',
+      );
+    }
+    _passwords[session.email] = newPassword;
   }
 
   @override
@@ -157,6 +203,31 @@ class ApiAuthRepository implements AuthRepository {
   @override
   Future<UserSession> refresh(String refreshToken) =>
       _postSession('/auth/refresh', {'refresh_token': refreshToken});
+
+  @override
+  Future<void> changePassword(
+    UserSession session,
+    String currentPassword,
+    String newPassword,
+  ) async {
+    final response = await _client.post(
+      _uri('/auth/change-password'),
+      headers: {
+        HttpHeaders.authorizationHeader: 'Bearer ${session.accessToken}',
+        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+      },
+      body: jsonEncode({
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      }),
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw AuthException(
+        'HTTP_${response.statusCode}',
+        'Password update failed.',
+      );
+    }
+  }
 
   @override
   Future<void> signOut(UserSession session) async {
@@ -250,6 +321,19 @@ class AuthController extends ValueNotifier<AuthState> {
     final updated = session.copyWith(profileComplete: true);
     await _sessionStore.write(updated);
     value = AuthState.signedIn(updated);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final session = value.session;
+    if (session == null) {
+      throw const AuthException('SIGNED_OUT', 'Please sign in again.');
+    }
+    await _repository.changePassword(session, currentPassword, newPassword);
+    await _sessionStore.write(session);
+    value = AuthState.signedIn(session);
   }
 
   Future<void> signOut() async {

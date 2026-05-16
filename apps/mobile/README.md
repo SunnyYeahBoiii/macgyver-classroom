@@ -38,6 +38,7 @@ If `MCG_BACKEND=api` is set, `MCG_API_BASE_URL` is required. The mobile auth cli
 - `POST /auth/login`
 - `POST /auth/register`
 - `POST /auth/refresh`
+- `POST /auth/change-password`
 - `POST /auth/logout`
 
 ## Test Commands
@@ -78,7 +79,7 @@ This status supports `tasks/phuong-mobile-lead.md`, especially PHUONG-01 through
 
 | Area | Mobile status | Backend contract status |
 | --- | --- | --- |
-| Auth session | API-mode client calls `/auth/login`, `/auth/register`, `/auth/refresh`, and `/auth/logout`. Mock mode is demo-ready. | API app has an auth module boundary, but no auth controller routes are documented as complete. Treat auth API as pending integration. |
+| Auth session | API-mode client calls `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/change-password`, and `/auth/logout`. Session responses can include `full_name` for account profile display. Mock mode is demo-ready. | API app has an auth module boundary, but no auth controller routes are documented as complete. Treat auth API as pending integration. |
 | Teacher profile | Mock repository supports onboarding/profile completion. | Contract pending for profile read/update DTOs and route ownership. |
 | Inventory scan | Mock repository supports draft scan, mock image attach, analysis, item review, and confirmation. | Contract pending for image upload, scan analysis, detected item edits, and confirmed item DTOs. |
 | Experiment matching | Mock repository returns lesson-ready suggestions from confirmed inventory. | Contract pending for match request/response DTOs, filters, safety notes, and AI/backend ownership. |

@@ -15,6 +15,7 @@ enum SafetyCategory { safe, caution, blocked }
 class UserSession {
   const UserSession({
     required this.userId,
+    required this.fullName,
     required this.email,
     required this.accessToken,
     required this.refreshToken,
@@ -23,24 +24,33 @@ class UserSession {
   });
 
   final String userId;
+  final String fullName;
   final String email;
   final String accessToken;
   final String refreshToken;
   final bool profileComplete;
   final String role;
 
-  UserSession copyWith({bool? profileComplete, String? accessToken}) =>
-      UserSession(
-        userId: userId,
-        email: email,
-        accessToken: accessToken ?? this.accessToken,
-        refreshToken: refreshToken,
-        profileComplete: profileComplete ?? this.profileComplete,
-        role: role,
-      );
+  UserSession copyWith({
+    bool? profileComplete,
+    String? accessToken,
+    String? fullName,
+  }) => UserSession(
+    userId: userId,
+    fullName: fullName ?? this.fullName,
+    email: email,
+    accessToken: accessToken ?? this.accessToken,
+    refreshToken: refreshToken,
+    profileComplete: profileComplete ?? this.profileComplete,
+    role: role,
+  );
 
   factory UserSession.fromJson(Map<String, dynamic> json) => UserSession(
     userId: json['user_id'] as String,
+    fullName:
+        json['full_name'] as String? ??
+        json['fullName'] as String? ??
+        'Teacher',
     email: json['email'] as String,
     accessToken: json['access_token'] as String,
     refreshToken: json['refresh_token'] as String,
@@ -50,6 +60,7 @@ class UserSession {
 
   Map<String, dynamic> toJson() => {
     'user_id': userId,
+    'full_name': fullName,
     'email': email,
     'access_token': accessToken,
     'refresh_token': refreshToken,
