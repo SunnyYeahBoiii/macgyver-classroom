@@ -67,14 +67,15 @@ Experiment suggestions only become classroom value when teachers can turn them i
 ## Core Flow
 
 1. Teacher selects an experiment suggestion.
-2. App shows generation context: grade, subject, topic, materials, duration.
-3. Teacher confirms or adjusts context.
-4. API calls lesson generation pipeline.
-5. Model-api returns structured lesson JSON.
-6. API validates schema and safety requirements.
-7. App displays editable lesson plan.
-8. Teacher edits and saves.
-9. Lesson is available in Lesson Library and Export flows.
+2. Teacher can either review details/context first or use the Suggested experiments AI shortcut to generate directly from the current confirmed material list.
+3. App shows generation context when the teacher chooses the review path: grade, subject, topic, materials, duration.
+4. Teacher confirms or adjusts context.
+5. API calls lesson generation pipeline.
+6. Model-api returns structured lesson JSON.
+7. API validates schema and safety requirements.
+8. App displays editable lesson plan.
+9. Teacher edits and saves.
+10. Lesson is available in Lesson Library and Export flows.
 
 ## AI Contract
 
@@ -82,22 +83,25 @@ Expected Lesson Plan response:
 
 ```json
 {
-  "title": "Thí nghiệm áp suất không khí bằng chai nhựa",
-  "duration_minutes": 45,
-  "grade_band": "THCS",
+  "title": "Plastic Bottle Air Pressure Experiment",
+  "durationMinutes": 45,
+  "gradeBand": "Middle school",
+  "subject": "Physics",
+  "topic": "Air pressure",
   "objectives": [],
   "materials": [],
-  "lesson_flow": [],
-  "guiding_questions": [],
-  "assessment": [],
-  "safety_notes": [],
-  "teacher_checks_required": []
+  "lessonFlow": [],
+  "guidingQuestions": [],
+  "assessment": "Exit ticket prompt",
+  "safetyNotes": [],
+  "teacherChecksRequired": []
 }
 ```
 
 Validation:
 
 - Response must parse as JSON.
+- Generated lesson fields must be written in English.
 - Duration must default to 45 minutes for MVP.
 - Safety notes cannot be empty.
 - Teacher checks cannot be empty.
@@ -140,16 +144,16 @@ Candidate endpoints:
 
 Request requirements:
 
-- `experimentMatchId`
-- `teacherProfileContext`
-- `lessonTopic` or selected curriculum topic
+- `scanId`
+- `experimentId`
+- Optional `lessonTopic` or selected curriculum topic
 - Optional teacher notes
 
 Response requirements:
 
-- Return saved draft lesson ID.
-- Return validated structured content.
-- Return warnings if generation required fallback or normalization.
+- Return saved draft lesson ID and validated structured content.
+- Return source `experimentId`, source `scanId`, and `aiRunId` for traceability.
+- Do not return local mock/fallback content in API mode. Provider failures must surface as recoverable generation errors.
 
 ## UX Requirements
 

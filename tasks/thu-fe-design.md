@@ -132,8 +132,38 @@ Acceptance criteria:
 Blocked by:
 
 - `THU-03 - Web Auth, Profile, And Teacher Context Screens`
-- `THINH-04 - Inventory Scan, Confirmed Item, And Asset APIs`
-- `PHONG-02 - Vision Scan Analysis Pipeline`
+- `THU-08 - FE-BE Contract Definition And Mock Data Layer`
+
+## THU-08 - FE-BE Contract Definition And Mock Data Layer
+
+Type: AFK
+
+Parent:
+
+- `features/03-vision-catalog-prd.md`
+- `features/05-experiment-matching-prd.md`
+- `features/06-lesson-plan-generation-prd.md`
+- `features/07-lesson-library-prd.md`
+- `features/08-export-sharing-prd.md`
+
+What to build:
+
+Define the complete FE-BE API contract (endpoints, request/response DTOs, auth headers) and implement a mock data layer that allows frontend development to proceed independently of backend API completion.
+
+Acceptance criteria:
+
+- [ ] API contract document includes all endpoints needed for teacher flow: auth, profile, inventory scan, experiment matching, lesson generation, library, export, feedback.
+- [ ] Each endpoint specifies HTTP method, path, request DTO shape, response DTO shape, auth requirements, and error responses.
+- [ ] Mock data layer provides realistic responses for all contract endpoints with configurable delays and error scenarios.
+- [ ] Mock data supports the complete demo path: sign in → profile → scan → confirm inventory → match experiments → generate lesson → save → export → feedback.
+- [ ] Frontend can toggle between mock and real API via environment variable or config flag.
+- [ ] Mock responses include loading states, pagination, empty states, and error cases for UI testing.
+- [ ] Contract is shared with Thinh and Phong for backend implementation alignment.
+
+Blocked by:
+
+- `THU-01 - Design System Baseline And Shared UI Inventory`
+- `THU-03 - Web Auth, Profile, And Teacher Context Screens`
 
 ## THU-05 - Experiment Matching And Lesson Generation UI
 
@@ -162,6 +192,7 @@ Acceptance criteria:
 Blocked by:
 
 - `THU-04 - Inventory Scan Review And Confirmation UI`
+- `THU-08 - FE-BE Contract Definition And Mock Data Layer`
 - `PHONG-04 - Safety Guardrails Engine`
 - `PHONG-05 - Experiment Matching Engine`
 - `PHONG-06 - Lesson Generation Pipeline`
@@ -194,6 +225,7 @@ Acceptance criteria:
 Blocked by:
 
 - `THU-05 - Experiment Matching And Lesson Generation UI`
+- `THU-08 - FE-BE Contract Definition And Mock Data Layer`
 - `THINH-05 - Lesson Library, Versioning, Export, And Share APIs`
 - `THINH-06 - Leads, Feedback, Analytics, And School Metrics APIs`
 

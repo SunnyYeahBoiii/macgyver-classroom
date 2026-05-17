@@ -29,7 +29,10 @@ import { UsersModule } from './users/users.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: join(__dirname, '..', '.env'),
+      envFilePath: [
+        join(__dirname, '..', '.env'),
+        join(__dirname, '..', '..', '..', '.env'),
+      ],
     }),
     CommonModule,
     ApiConfigModule,
