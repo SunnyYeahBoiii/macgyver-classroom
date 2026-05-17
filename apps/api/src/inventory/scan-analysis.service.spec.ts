@@ -84,6 +84,36 @@ describe('ScanAnalysisService', () => {
     );
   });
 
+  it('stores a retry-safe message when the AI provider throws an unexpected error', async () => {
+    const { aiRunService, materialsService, provider, repository, service } =
+      createSubject();
+    materialsService.listVisionCatalog.mockReturnValue([
+      {
+        aliases: [],
+        canonicalName: 'plastic_bottle',
+        displayName: 'Plastic bottle',
+      },
+    ]);
+    provider.analyzeMaterials.mockRejectedValue(
+      new Error('raw provider stack with credentials'),
+    );
+
+    await expect(
+      service.analyzeScan('scan-1', { images: [scanImage] }),
+    ).rejects.toThrow(ServiceUnavailableException);
+
+    expect(aiRunService.failRun).toHaveBeenCalledWith(
+      'ai-run-1',
+      'ai_provider_failed',
+      'AI provider failed. Please try again.',
+    );
+    expect(repository.markScanFailed).toHaveBeenCalledWith(
+      'scan-1',
+      'ai_provider_failed',
+      'AI provider failed. Please try again.',
+    );
+  });
+
   it('rejects too many scan images before starting an AI run', async () => {
     const { aiRunService, provider, service } = createSubject();
 

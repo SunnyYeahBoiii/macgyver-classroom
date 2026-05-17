@@ -23,6 +23,20 @@ export const STATIC_MATERIAL_CATALOG: MaterialCatalogItem[] = [
     defaultUnit: 'cái',
   },
   {
+    canonicalName: 'paper_plate',
+    displayName: 'Đĩa giấy',
+    aliases: ['paper plate', 'plate giấy', 'dia giay', 'đĩa giấy'],
+    category: 'surface',
+    defaultUnit: 'cái',
+  },
+  {
+    canonicalName: 'wooden_fork',
+    displayName: 'Dĩa gỗ',
+    aliases: ['wooden fork', 'wood fork', 'dia go', 'dĩa gỗ', 'nĩa gỗ'],
+    category: 'tool',
+    defaultUnit: 'cái',
+  },
+  {
     canonicalName: 'plastic_cup',
     displayName: 'Ly nhựa',
     aliases: ['plastic cup', 'cup nhựa', 'ly nhua'],

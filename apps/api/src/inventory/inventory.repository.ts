@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type { CreateInventoryScanDto } from './dto/create-inventory-scan.dto';
+import type { ConfirmedItem } from './entities/confirmed-item.entity';
 import type { DetectedItem } from './entities/detected-item.entity';
 import type {
   InventoryScan,
@@ -21,6 +22,7 @@ export class InventoryRepository {
   createScan(input: CreateInventoryScanDto): InventoryScan {
     const scan: InventoryScan = {
       classLabel: input.classLabel,
+      confirmedItems: [],
       detectedItems: [],
       gradeBand: input.gradeBand,
       id: randomUUID(),
@@ -68,11 +70,21 @@ export class InventoryRepository {
     id: string,
     detectedItems: DetectedItem[],
   ): InventoryScan | undefined {
-    return this.patchScan(id, { detectedItems, status: 'NEEDS_CONFIRMATION' });
+    return this.patchScan(id, {
+      confirmedItems: [],
+      detectedItems,
+      status: 'NEEDS_CONFIRMATION',
+    });
   }
 
   confirmScan(id: string): InventoryScan | undefined {
-    return this.patchScan(id, { status: 'CONFIRMED' });
+    const scan = this.scans.get(id);
+    if (!scan) return undefined;
+
+    return this.patchScan(id, {
+      confirmedItems: this.toConfirmedItems(scan),
+      status: 'CONFIRMED',
+    });
   }
 
   private patchScan(
@@ -84,5 +96,26 @@ export class InventoryRepository {
     const next = { ...scan, ...patch };
     this.scans.set(id, next);
     return next;
+  }
+
+  private toConfirmedItems(scan: InventoryScan): ConfirmedItem[] {
+    const confirmedAt = new Date().toISOString();
+
+    return scan.detectedItems
+      .filter((item) => !item.removed)
+      .map((item) => ({
+        active: true,
+        canonicalName: item.canonicalName,
+        confidence: item.confidence,
+        confirmedAt,
+        displayName: item.displayName,
+        evidence: [...item.evidence],
+        id: randomUUID(),
+        quantityEstimate: item.quantityEstimate,
+        rawLabel: item.rawLabel,
+        safetyFlags: [...item.safetyFlags],
+        scanId: scan.id,
+        unit: item.unit,
+      }));
   }
 }

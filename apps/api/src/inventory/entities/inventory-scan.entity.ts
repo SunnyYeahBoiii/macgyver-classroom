@@ -1,3 +1,4 @@
+import { ConfirmedItem } from './confirmed-item.entity';
 import { DetectedItem } from './detected-item.entity';
 
 export type InventoryScanStatus =
@@ -18,4 +19,5 @@ export class InventoryScan {
   errorCode?: string;
   errorMessage?: string;
   detectedItems!: DetectedItem[];
+  confirmedItems!: ConfirmedItem[];
 }

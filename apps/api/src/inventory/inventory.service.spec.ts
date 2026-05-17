@@ -55,4 +55,38 @@ describe('InventoryService', () => {
       detectedItems: [reviewedItem],
     });
   });
+
+  it('creates confirmed item snapshots from active reviewed items', () => {
+    const { service } = createSubject();
+    const scan = service.createDraft({});
+    service.updateItems(scan.id, [
+      reviewedItem,
+      {
+        ...reviewedItem,
+        canonicalName: 'paper',
+        displayName: 'Removed paper',
+        rawLabel: 'paper',
+        removed: true,
+      },
+    ]);
+
+    const confirmedScan = service.confirm(scan.id);
+
+    expect(confirmedScan.confirmedItems).toEqual([
+      expect.objectContaining({
+        active: true,
+        canonicalName: 'plastic_bottle',
+        displayName: 'Plastic bottle',
+        quantityEstimate: 1,
+        rawLabel: 'plastic bottle',
+        safetyFlags: [],
+        scanId: scan.id,
+        unit: 'item',
+      }),
+    ]);
+    expect(confirmedScan.confirmedItems?.[0]?.id).toEqual(expect.any(String));
+    expect(confirmedScan.confirmedItems?.[0]?.confirmedAt).toEqual(
+      expect.any(String),
+    );
+  });
 });

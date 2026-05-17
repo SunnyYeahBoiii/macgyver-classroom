@@ -6,8 +6,11 @@ import { AppModule } from './app.module';
 import {
   configureApp,
   createNestApplication,
+  DEFAULT_CORS_ORIGINS,
   DEFAULT_SCAN_ANALYZE_JSON_BODY_LIMIT,
+  resolveCorsOrigins,
   resolveScanAnalyzeJsonBodyLimit,
+  CORS_ORIGINS_ENV,
   SCAN_ANALYZE_JSON_BODY_LIMIT_ENV,
 } from './main';
 
@@ -32,8 +35,26 @@ describe('main bootstrap configuration', () => {
     expect(resolveScanAnalyzeJsonBodyLimit(configService)).toBe('20mb');
   });
 
+  it('defaults CORS to localhost app origins for Flutter web development', () => {
+    const configService = new ConfigService();
+
+    expect(resolveCorsOrigins(configService)).toEqual(DEFAULT_CORS_ORIGINS);
+  });
+
+  it('allows CORS origins to be overridden through env config', () => {
+    const configService = new ConfigService({
+      [CORS_ORIGINS_ENV]: 'https://pilot.test, http://localhost:63849 ',
+    });
+
+    expect(resolveCorsOrigins(configService)).toEqual([
+      'https://pilot.test',
+      'http://localhost:63849',
+    ]);
+  });
+
   it('enables DTO validation globally before requests reach controllers', () => {
     const app = {
+      enableCors: jest.fn(),
       useBodyParser: jest.fn(),
       useGlobalPipes: jest.fn(),
     };
@@ -47,6 +68,9 @@ describe('main bootstrap configuration', () => {
     expect(app.useBodyParser).toHaveBeenCalledWith('urlencoded', {
       extended: true,
       limit: DEFAULT_SCAN_ANALYZE_JSON_BODY_LIMIT,
+    });
+    expect(app.enableCors).toHaveBeenCalledWith({
+      origin: DEFAULT_CORS_ORIGINS,
     });
     expect(app.useGlobalPipes).toHaveBeenCalledWith(expect.any(ValidationPipe));
   });

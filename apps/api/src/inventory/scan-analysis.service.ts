@@ -3,6 +3,7 @@ import {
   HttpException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -25,6 +26,8 @@ export const MAX_SCAN_IMAGE_BASE64_LENGTH = 5_000_000;
 
 @Injectable()
 export class ScanAnalysisService {
+  private readonly logger = new Logger(ScanAnalysisService.name);
+
   constructor(
     @Inject(MATERIAL_VISION_PROVIDER)
     private readonly materialVisionProvider: MaterialVisionProvider,
@@ -74,6 +77,16 @@ export class ScanAnalysisService {
           catalog,
           images,
         },
+      );
+      this.logger.log(
+        `AI material vision response ${JSON.stringify({
+          aiRunId: aiRun.id,
+          imageCount: images.length,
+          model: this.materialVisionProvider.modelName,
+          provider: this.materialVisionProvider.providerName,
+          response: providerResult,
+          scanId,
+        })}`,
       );
       const noMaterialsDetected =
         providerResult.noMaterialsDetected === true ||
@@ -210,7 +223,6 @@ export class ScanAnalysisService {
       }
       if (typeof response === 'string') return response;
     }
-    if (error instanceof Error) return error.message;
-    return 'AI provider failed.';
+    return 'AI provider failed. Please try again.';
   }
 }
