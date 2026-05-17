@@ -170,7 +170,7 @@ apps/api/src/
 | `lessons`       | Lesson plan generation, editor state, export                                |
 | `curriculum`    | GDPT 2018 metadata, grade/subject/topic mapping                             |
 | `assets`        | Private upload, signed URL, metadata                                        |
-| `ai`            | Client gọi model-api, prompt contracts, retry/fallback                      |
+| `ai`            | Client gọi model-api, prompt contracts, retry và provider error handling    |
 | `leads`         | Landing page pilot lead capture                                             |
 | `analytics`     | Product events, usage metrics                                               |
 | `admin`         | Content curation, moderation queue, audit trail                             |
@@ -265,7 +265,7 @@ Model-api giữ pattern route mỏng/handler dày từ Cityfarm2.0, nhưng contr
 ```text
 POST /internal/vision/catalog
 POST /internal/materials/map-properties
-POST /internal/lessons/generate
+POST /lessons/generate
 POST /internal/safety/check
 GET  /ready
 ```
@@ -291,7 +291,7 @@ sequenceDiagram
   A->>DB: Save confirmed items
   A->>A: Match experiments from curated DB
   A->>AI: Generate lesson from selected template
-  AI-->>A: Lesson plan JSON/Markdown
+  AI-->>A: Structured lesson JSON
   A->>DB: Save lesson version
   A-->>M: Lesson plan
 ```
@@ -319,16 +319,18 @@ Lesson Plan response:
 
 ```json
 {
-  "title": "Thí nghiệm áp suất không khí bằng chai nhựa",
-  "duration_minutes": 45,
-  "grade_band": "THCS",
+  "title": "Plastic Bottle Air Pressure Experiment",
+  "durationMinutes": 45,
+  "gradeBand": "Middle school",
+  "subject": "Physics",
+  "topic": "Air pressure",
   "objectives": [],
   "materials": [],
-  "lesson_flow": [],
-  "guiding_questions": [],
-  "assessment": [],
-  "safety_notes": [],
-  "teacher_checks_required": []
+  "lessonFlow": [],
+  "guidingQuestions": [],
+  "assessment": "Exit ticket prompt",
+  "safetyNotes": [],
+  "teacherChecksRequired": []
 }
 ```
 
@@ -336,6 +338,7 @@ Guardrails:
 
 - Model IDs nằm trong config/env, không hard-code preview model.
 - LLM output phải parse JSON được và pass schema validation.
+- Lesson Plan Generation output fields are written in English.
 - Mọi output có safety note.
 - AI không thêm vật liệu ngoài template nếu chưa qua safety rule.
 - Error response không trả raw exception/provider stack.
@@ -499,6 +502,12 @@ Server secrets:
 - `JWT_REFRESH_SECRET`
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_SERVICE_ACCOUNT_JSON` - JSON service account credential used by the NestJS AI provider for Vertex AI.
+- `GOOGLE_VERTEX_PROJECT_ID` - Google Cloud project for Vertex AI; falls back to `project_id` inside `GOOGLE_SERVICE_ACCOUNT_JSON`.
+- `GOOGLE_VERTEX_LOCATION` - Vertex AI location for Gemini vision requests; MVP default is `global`.
+- `GOOGLE_VERTEX_MODEL` - Gemini model for Vision Catalog image analysis; MVP default is `gemini-2.5-flash`.
+- Vision scan analysis does not use a local synthetic fallback; provider credential/config failures return retry-safe errors.
+- `SCAN_ANALYZE_JSON_BODY_LIMIT` - NestJS JSON/urlencoded body-parser limit for transient base64 scan analysis payloads; MVP default is `16mb`.
 - `MODEL_API_URL`
 - `MODEL_API_AUTH_TOKEN`
 - `AI_PROVIDER_API_KEY` or provider-specific service credential
@@ -543,6 +552,7 @@ Metrics:
 
 - Invalid image.
 - Oversized image.
+- Oversized scan-analysis JSON body returns `413` before AI/provider execution.
 - Provider timeout.
 - Non-JSON model response.
 - Normalization of Vietnamese/English material names.
