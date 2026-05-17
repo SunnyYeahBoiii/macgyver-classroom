@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:go_router/go_router.dart';
@@ -232,17 +234,26 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Wrap(
+                Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
                     McBadge(
-                      label: 'Mock backend',
-                      tone: McBadgeTone.good,
-                      icon: Icons.offline_bolt_outlined,
+                      label: deps.config.useMockBackend
+                          ? 'Mock backend'
+                          : 'API backend',
+                      tone: deps.config.useMockBackend
+                          ? McBadgeTone.warning
+                          : McBadgeTone.good,
+                      icon: deps.config.useMockBackend
+                          ? Icons.offline_bolt_outlined
+                          : Icons.cloud_done_outlined,
                     ),
-                    McBadge(label: 'Teacher MVP', icon: Icons.school_outlined),
-                    McBadge(
+                    const McBadge(
+                      label: 'Teacher MVP',
+                      icon: Icons.school_outlined,
+                    ),
+                    const McBadge(
                       label: 'Safety checks',
                       tone: McBadgeTone.warning,
                       icon: Icons.health_and_safety_outlined,
@@ -375,6 +386,44 @@ class _LoadingState extends StatelessWidget {
       label: label,
       liveRegion: true,
       child: const Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _RetryableErrorState extends StatelessWidget {
+  const _RetryableErrorState({
+    required this.message,
+    required this.buttonKey,
+    required this.buttonLabel,
+    required this.onRetry,
+  });
+
+  final String message;
+  final Key buttonKey;
+  final String buttonLabel;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return McCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          McBadge(
+            label: message,
+            tone: McBadgeTone.danger,
+            icon: Icons.error_outline,
+          ),
+          const SizedBox(height: 12),
+          McButton(
+            key: buttonKey,
+            label: buttonLabel,
+            icon: Icons.refresh,
+            secondary: true,
+            onPressed: onRetry,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -672,9 +721,16 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
       final controller = _controller;
       if (controller != null && controller.value.isInitialized) {
         final file = await controller.takePicture();
+        final bytes = await file.readAsBytes();
         if (mounted) {
           context.pop(
-            ScanImage(id: file.name, source: 'camera', path: file.path),
+            ScanImage(
+              id: file.name,
+              source: 'camera',
+              path: file.path,
+              mimeType: _mimeTypeForPath(file.path),
+              bytes: bytes,
+            ),
           );
         }
         return;
@@ -729,12 +785,14 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen>
                   aspectRatio: 3 / 4,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(McRadius.md),
-                    child: ColoredBox(
-                      color: Colors.black,
-                      child:
-                          controller != null && controller.value.isInitialized
-                          ? CameraPreview(controller)
-                          : _CameraFallbackFrame(error: _error),
+                    child: RepaintBoundary(
+                      child: ColoredBox(
+                        color: Colors.black,
+                        child:
+                            controller != null && controller.value.isInitialized
+                            ? CameraPreview(controller)
+                            : _CameraFallbackFrame(error: _error),
+                      ),
                     ),
                   ),
                 ),
@@ -800,13 +858,53 @@ class InventoryCaptureScreen extends StatefulWidget {
   State<InventoryCaptureScreen> createState() => _InventoryCaptureScreenState();
 }
 
-class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
+class _InventoryCaptureScreenState extends State<InventoryCaptureScreen>
+    with WidgetsBindingObserver {
   InventoryScan? _scan;
   String? _error;
+  String? _notice;
+  var _pendingImages = <ScanImage>[];
   var _busy = false;
+  var _recoveringLostData = false;
+  Future<InventoryScan?>? _creatingScan;
 
-  Future<void> _ensureScan() async {
-    if (_scan != null || _error != null) return;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _primeScanState());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _recoverLostData();
+    }
+  }
+
+  Future<void> _primeScanState() async {
+    if (!mounted) return;
+    await _recoverLostData();
+  }
+
+  Future<InventoryScan?> _ensureScan() {
+    if (!mounted) return Future<InventoryScan?>.value();
+    final scan = _scan;
+    if (scan != null) {
+      return Future<InventoryScan?>.value(scan);
+    }
+    return _creatingScan ??= _createScan().whenComplete(() {
+      _creatingScan = null;
+    });
+  }
+
+  Future<InventoryScan?> _createScan() async {
     try {
       final deps = AppScope.of(context);
       final profile = await deps.profileRepository.getProfile();
@@ -815,29 +913,75 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
       if (mounted) {
         setState(() => _scan = scan);
       }
+      return scan;
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Could not start an inventory scan.');
+        final deps = AppScope.of(context);
+        final message = deps.config.useMockBackend
+            ? 'Could not start an inventory scan.'
+            : 'Could not reach the API at ${deps.config.apiBaseUrl}. Start the NestJS API and check MCG_API_BASE_URL.';
+        setState(() => _error = message);
       }
+      return null;
     }
   }
 
-  Future<void> _attach(Future<List<ScanImage>> future) async {
+  Future<void> _recoverLostData() async {
+    if (_recoveringLostData) return;
+    _recoveringLostData = true;
+    try {
+      final images = await AppScope.of(
+        context,
+      ).imageCaptureService.retrieveLostData();
+      if (!mounted || images.isEmpty) return;
+      await _attach(Future.value(images), recovered: true);
+    } catch (_) {
+      // Lost-data recovery is best-effort and not supported on every platform.
+      // Capture/gallery still work, so do not show a blocking scan notice.
+    } finally {
+      _recoveringLostData = false;
+    }
+  }
+
+  Future<void> _attach(
+    Future<List<ScanImage>> future, {
+    bool recovered = false,
+  }) async {
     final deps = AppScope.of(context);
-    if (_error != null) setState(() => _error = null);
-    await _ensureScan();
-    if (!mounted) return;
+    if (_error != null || _notice != null) {
+      setState(() {
+        _error = null;
+        _notice = null;
+      });
+    }
     try {
       final images = await future;
-      if (!mounted || images.isEmpty || _scan == null) return;
-      final next = await deps.inventoryRepository.attachImages(_scan!.id, [
-        ..._scan!.images,
-        ...images,
-      ]);
-      deps.analyticsRepository.track('scan_image_uploaded', {
-        'source': images.first.source,
+      if (!mounted || images.isEmpty) return;
+      final currentImages = _displayImagesFor(_scan);
+      final availableSlots = maxScanAnalyzeImages - currentImages.length;
+      if (availableSlots <= 0) {
+        setState(() {
+          _notice =
+              'Only $maxScanAnalyzeImages photos can be analyzed at once.';
+        });
+        return;
+      }
+      final acceptedImages = images.take(availableSlots).toList();
+      final nextImages = [...currentImages, ...acceptedImages];
+      if (mounted) {
+        setState(() {
+          _pendingImages = nextImages;
+          if (images.length > acceptedImages.length) {
+            _notice =
+                'Only $maxScanAnalyzeImages photos can be analyzed at once.';
+          } else if (recovered) {
+            _notice = 'Recovered interrupted image selection.';
+          }
+        });
+      }
+      deps.analyticsRepository.track('scan_image_selected', {
+        'source': acceptedImages.first.source,
       });
-      if (mounted) setState(() => _scan = next);
     } catch (_) {
       if (mounted) {
         setState(() => _error = 'Could not add the selected classroom photo.');
@@ -845,16 +989,33 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
     }
   }
 
+  Future<void> _removeImage(ScanImage image) async {
+    final nextImages = [
+      for (final candidate in _displayImagesFor(_scan))
+        if (candidate.id != image.id) candidate,
+    ];
+    setState(() {
+      _pendingImages = nextImages;
+      _notice = null;
+    });
+  }
+
   Future<List<ScanImage>> _captureCamera() async {
     final image = await context.push<ScanImage>('/scan/camera');
     return image == null ? const <ScanImage>[] : [image];
   }
 
+  List<ScanImage> _displayImagesFor(InventoryScan? scan) {
+    if (_pendingImages.isNotEmpty) return _pendingImages;
+    final persistedImages = scan?.images ?? const <ScanImage>[];
+    return persistedImages;
+  }
+
   @override
   Widget build(BuildContext context) {
-    _ensureScan();
     final deps = AppScope.of(context);
     final scan = _scan;
+    final displayImages = _displayImagesFor(scan);
     return MacGyverShell(
       title: 'Inventory Scan',
       activeRoute: '/scan',
@@ -869,11 +1030,11 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Topic: ${scan?.topic ?? 'Loading...'}',
+                  'Topic: ${scan?.topic ?? 'Ready to analyze'}',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 10),
-                if (scan == null || scan.images.isEmpty)
+                if (displayImages.isEmpty)
                   const McEmptyState(
                     icon: Icons.photo_camera_outlined,
                     title: 'No classroom photo yet',
@@ -885,10 +1046,10 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      for (final image in scan.images)
-                        Chip(
-                          avatar: const Icon(Icons.image_outlined),
-                          label: Text(image.id),
+                      for (final image in displayImages)
+                        _ScanImagePreview(
+                          image: image,
+                          onRemove: () => _removeImage(image),
                         ),
                     ],
                   ),
@@ -900,6 +1061,14 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
                     icon: Icons.error_outline,
                   ),
                 ],
+                if (_notice != null) ...[
+                  const SizedBox(height: 12),
+                  McBadge(
+                    label: _notice!,
+                    tone: McBadgeTone.neutral,
+                    icon: Icons.restore,
+                  ),
+                ],
                 const SizedBox(height: 16),
                 _ResponsiveButtonRow(
                   children: [
@@ -907,15 +1076,23 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
                       key: const ValueKey('scan_camera'),
                       label: 'Camera',
                       icon: Icons.camera_alt_outlined,
-                      onPressed: () => _attach(_captureCamera()),
+                      onPressed: displayImages.length >= maxScanAnalyzeImages
+                          ? null
+                          : () => _attach(_captureCamera()),
                     ),
                     McButton(
                       key: const ValueKey('scan_gallery'),
                       label: 'Gallery',
                       icon: Icons.photo_library_outlined,
                       secondary: true,
-                      onPressed: () =>
-                          _attach(deps.imageCaptureService.pickGallery()),
+                      onPressed: displayImages.length >= maxScanAnalyzeImages
+                          ? null
+                          : () => _attach(
+                              deps.imageCaptureService.pickGallery(
+                                limit:
+                                    maxScanAnalyzeImages - displayImages.length,
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -924,29 +1101,50 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
                   key: const ValueKey('scan_analyze'),
                   label: _busy ? 'Analyzing...' : 'Analyze inventory',
                   icon: Icons.auto_awesome,
-                  onPressed: scan == null || scan.images.isEmpty || _busy
+                  onPressed: displayImages.isEmpty || _busy
                       ? null
                       : () async {
                           setState(() {
                             _busy = true;
                             _error = null;
+                            _notice =
+                                'Sending photos to AI for inventory analysis...';
                           });
                           try {
+                            final analysisScan = await _ensureScan();
+                            if (!mounted || analysisScan == null) return;
                             deps.analyticsRepository.track(
                               'scan_analysis_started',
-                              {'scan_id': scan.id},
+                              {'scan_id': analysisScan.id},
                             );
                             final analyzed = await deps.inventoryRepository
-                                .analyze(scan.id, images: scan.images);
+                                .analyze(
+                                  analysisScan.id,
+                                  images: displayImages,
+                                );
+                            if (!mounted) return;
+                            if (analyzed.status == ScanStatus.failed) {
+                              setState(() {
+                                _scan = analyzed;
+                                _notice = null;
+                                _error =
+                                    analyzed.errorMessage ??
+                                    'Could not analyze the inventory photo.';
+                              });
+                              return;
+                            }
                             if (context.mounted) {
                               context.go('/inventory/${analyzed.id}/review');
                             }
-                          } catch (_) {
+                          } catch (error) {
                             if (mounted) {
-                              setState(
-                                () => _error =
-                                    'Could not analyze the inventory photo.',
-                              );
+                              setState(() {
+                                _notice = null;
+                                _error = _messageForError(
+                                  error,
+                                  'Could not analyze the inventory photo.',
+                                );
+                              });
                             }
                           } finally {
                             if (mounted) setState(() => _busy = false);
@@ -962,6 +1160,133 @@ class _InventoryCaptureScreenState extends State<InventoryCaptureScreen> {
   }
 }
 
+class _ScanImagePreview extends StatelessWidget {
+  const _ScanImagePreview({required this.image, required this.onRemove});
+
+  final ScanImage image;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 148,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: McColors.screen,
+          border: Border.all(color: McColors.border, width: .5),
+          borderRadius: BorderRadius.circular(McRadius.md),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AspectRatio(
+              aspectRatio: 4 / 3,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(McRadius.md),
+                ),
+                child: _ScanImageBitmap(image: image),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      image.id,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ),
+                  IconButton(
+                    key: ValueKey('scan_image_remove_${image.id}'),
+                    tooltip: 'Remove photo',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: onRemove,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ScanImageBitmap extends StatelessWidget {
+  const _ScanImageBitmap({required this.image});
+
+  final ScanImage image;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = image.bytes;
+    if (bytes != null && bytes.isNotEmpty) {
+      return Image.memory(
+        bytes,
+        key: ValueKey('scan_image_preview_${image.id}'),
+        fit: BoxFit.cover,
+        cacheWidth: 296,
+        cacheHeight: 222,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) => const _ScanImagePlaceholder(),
+      );
+    }
+
+    final dataBase64 = image.dataBase64;
+    if (dataBase64 != null && dataBase64.isNotEmpty) {
+      try {
+        return Image.memory(
+          base64Decode(dataBase64),
+          key: ValueKey('scan_image_preview_${image.id}'),
+          fit: BoxFit.cover,
+          cacheWidth: 296,
+          cacheHeight: 222,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => const _ScanImagePlaceholder(),
+        );
+      } catch (_) {
+        return const _ScanImagePlaceholder();
+      }
+    }
+
+    return const _ScanImagePlaceholder();
+  }
+}
+
+class _ScanImagePlaceholder extends StatelessWidget {
+  const _ScanImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: McColors.subtle,
+      child: Center(
+        child: Icon(Icons.image_outlined, color: McColors.muted, size: 32),
+      ),
+    );
+  }
+}
+
+String _mimeTypeForPath(String path) {
+  final lower = path.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  return 'image/jpeg';
+}
+
+String _messageForError(Object error, String fallback) {
+  if (error is InventoryRequestException && error.message.trim().isNotEmpty) {
+    return error.message;
+  }
+  return fallback;
+}
+
 class InventoryReviewScreen extends StatefulWidget {
   const InventoryReviewScreen({required this.scanId, super.key});
 
@@ -974,6 +1299,9 @@ class InventoryReviewScreen extends StatefulWidget {
 class _InventoryReviewScreenState extends State<InventoryReviewScreen> {
   InventoryScan? _scan;
   String? _loadedScanId;
+  String? _loadError;
+  String? _actionError;
+  var _saving = false;
 
   @override
   void didChangeDependencies() {
@@ -987,6 +1315,8 @@ class _InventoryReviewScreenState extends State<InventoryReviewScreen> {
     if (oldWidget.scanId != widget.scanId) {
       _scan = null;
       _loadedScanId = null;
+      _loadError = null;
+      _actionError = null;
       _loadIfNeeded();
     }
   }
@@ -998,25 +1328,173 @@ class _InventoryReviewScreenState extends State<InventoryReviewScreen> {
   }
 
   Future<void> _load(String scanId) async {
-    final deps = AppScope.of(context);
-    final scan = await deps.inventoryRepository.getScan(scanId);
-    if (mounted && widget.scanId == scanId && scan != _scan) {
-      setState(() => _scan = scan);
+    try {
+      final deps = AppScope.of(context);
+      final scan = await deps.inventoryRepository.getScan(scanId);
+      if (!mounted || widget.scanId != scanId) return;
+      if (scan == null) {
+        setState(() {
+          _scan = null;
+          _loadError = 'Scan not found.';
+        });
+        return;
+      }
+      setState(() {
+        _scan = scan;
+        _loadError = null;
+      });
+    } catch (_) {
+      if (mounted && widget.scanId == scanId) {
+        setState(() {
+          _scan = null;
+          _loadError = 'Could not load detected materials.';
+        });
+      }
     }
   }
 
   Future<void> _saveItems(List<DetectedItem> items) async {
-    final deps = AppScope.of(context);
-    final scan = await deps.inventoryRepository.updateItems(
-      widget.scanId,
-      items,
-    );
-    deps.analyticsRepository.track('detected_item_corrected', {
-      'scan_id': widget.scanId,
+    if (_saving) return;
+    setState(() {
+      _saving = true;
+      _actionError = null;
     });
-    if (mounted) {
-      setState(() => _scan = scan);
+    try {
+      final deps = AppScope.of(context);
+      final scan = await deps.inventoryRepository.updateItems(
+        widget.scanId,
+        items,
+      );
+      deps.analyticsRepository.track('detected_item_corrected', {
+        'scan_id': widget.scanId,
+      });
+      if (mounted) {
+        setState(() => _scan = scan);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _actionError = 'Could not save inventory changes.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
+  }
+
+  void _retryLoad() {
+    setState(() {
+      _scan = null;
+      _loadedScanId = null;
+      _loadError = null;
+      _actionError = null;
+    });
+    _loadIfNeeded();
+  }
+
+  Future<DetectedItem?> _showItemEditor({DetectedItem? item}) async {
+    final labelController = TextEditingController(text: item?.label ?? '');
+    final quantityController = TextEditingController(
+      text: '${item?.quantity ?? 1}',
+    );
+    final unitController = TextEditingController(text: item?.unit ?? 'pieces');
+    String? validationError;
+
+    final result = await showDialog<DetectedItem>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void submit() {
+              final label = labelController.text.trim();
+              final quantity =
+                  int.tryParse(quantityController.text.trim()) ?? 1;
+              final unit = unitController.text.trim().isEmpty
+                  ? 'pieces'
+                  : unitController.text.trim();
+              if (label.isEmpty) {
+                setDialogState(() {
+                  validationError = 'Enter an item name.';
+                });
+                return;
+              }
+
+              final normalizedQuantity = quantity.clamp(1, 999).toInt();
+              final next = item == null
+                  ? DetectedItem(
+                      id: 'manual-${DateTime.now().microsecondsSinceEpoch}',
+                      label: label,
+                      quantity: normalizedQuantity,
+                      unit: unit,
+                      confidence: 1,
+                      evidence: 'Added manually by teacher.',
+                      evidenceDetails: const ['Added manually by teacher.'],
+                      rawLabel: label,
+                      canonicalName: null,
+                    )
+                  : item.copyWith(
+                      label: label,
+                      quantity: normalizedQuantity,
+                      unit: unit,
+                    );
+              Navigator.of(dialogContext).pop(next);
+            }
+
+            return AlertDialog(
+              title: Text(item == null ? 'Add missing item' : 'Edit item'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    key: const ValueKey('inventory_item_label'),
+                    controller: labelController,
+                    decoration: const InputDecoration(labelText: 'Item name'),
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('inventory_item_quantity'),
+                    controller: quantityController,
+                    decoration: const InputDecoration(labelText: 'Quantity'),
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const ValueKey('inventory_item_unit'),
+                    controller: unitController,
+                    decoration: const InputDecoration(labelText: 'Unit'),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => submit(),
+                  ),
+                  if (validationError != null) ...[
+                    const SizedBox(height: 12),
+                    McBadge(
+                      label: validationError!,
+                      tone: McBadgeTone.warning,
+                      icon: Icons.info_outline,
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  key: const ValueKey('inventory_item_save'),
+                  onPressed: submit,
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    return result;
   }
 
   @override
@@ -1028,9 +1506,32 @@ class _InventoryReviewScreenState extends State<InventoryReviewScreen> {
       child: McScroll(
         children: [
           const McSectionHeader(eyebrow: 'Review', title: 'Detected materials'),
-          if (scan == null)
+          if (_loadError != null && scan == null)
+            _RetryableErrorState(
+              message: _loadError!,
+              buttonKey: const ValueKey('inventory_retry_load'),
+              buttonLabel: 'Retry inventory',
+              onRetry: _retryLoad,
+            )
+          else if (scan == null)
             const _LoadingState(label: 'Loading detected materials')
           else ...[
+            if (_actionError != null) ...[
+              McBadge(
+                label: _actionError!,
+                tone: McBadgeTone.danger,
+                icon: Icons.error_outline,
+              ),
+              const SizedBox(height: 10),
+            ],
+            if (_saving) ...[
+              const McBadge(
+                label: 'Saving inventory changes...',
+                tone: McBadgeTone.neutral,
+                icon: Icons.sync,
+              ),
+              const SizedBox(height: 10),
+            ],
             if (scan.detectedItems.isEmpty)
               const McEmptyState(
                 icon: Icons.inventory_2_outlined,
@@ -1051,26 +1552,30 @@ class _InventoryReviewScreenState extends State<InventoryReviewScreen> {
                           .toList(),
                     );
                   },
+                  onEdit: () async {
+                    final next = await _showItemEditor(item: item);
+                    if (next == null || !mounted) return;
+                    await _saveItems(
+                      scan.detectedItems
+                          .map(
+                            (current) => current.id == next.id ? next : current,
+                          )
+                          .toList(),
+                    );
+                  },
                 ),
             McButton(
               key: const ValueKey('inventory_add_item'),
               label: 'Add missing item',
               icon: Icons.add,
               secondary: true,
-              onPressed: () {
-                final item = DetectedItem(
-                  id: 'manual-${DateTime.now().millisecondsSinceEpoch}',
-                  label: 'Paper clips',
-                  quantity: 20,
-                  unit: 'pieces',
-                  confidence: 1,
-                  evidence: 'Added manually by teacher.',
-                  evidenceDetails: const ['Added manually by teacher.'],
-                  rawLabel: 'Paper clips',
-                  canonicalName: null,
-                );
-                _saveItems([...scan.detectedItems, item]);
-              },
+              onPressed: _saving
+                  ? null
+                  : () async {
+                      final item = await _showItemEditor();
+                      if (item == null || !mounted) return;
+                      await _saveItems([...scan.detectedItems, item]);
+                    },
             ),
             if (scan.confirmedItems.isEmpty) ...[
               const SizedBox(height: 10),
@@ -1084,7 +1589,7 @@ class _InventoryReviewScreenState extends State<InventoryReviewScreen> {
               key: const ValueKey('inventory_continue_confirm'),
               label: 'Review final inventory',
               icon: Icons.inventory_2_outlined,
-              onPressed: scan.confirmedItems.isEmpty
+              onPressed: scan.confirmedItems.isEmpty || _saving
                   ? null
                   : () => context.go('/inventory/${scan.id}/confirm'),
             ),
@@ -1096,10 +1601,15 @@ class _InventoryReviewScreenState extends State<InventoryReviewScreen> {
 }
 
 class _DetectedItemCard extends StatelessWidget {
-  const _DetectedItemCard({required this.item, required this.onChanged});
+  const _DetectedItemCard({
+    required this.item,
+    required this.onChanged,
+    required this.onEdit,
+  });
 
   final DetectedItem item;
   final ValueChanged<DetectedItem> onChanged;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -1179,6 +1689,12 @@ class _DetectedItemCard extends StatelessWidget {
                   ),
                 ),
                 TextButton.icon(
+                  key: ValueKey('inventory_edit_${item.id}'),
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Edit'),
+                ),
+                TextButton.icon(
                   onPressed: () =>
                       onChanged(item.copyWith(removed: !item.removed)),
                   icon: Icon(item.removed ? Icons.undo : Icons.delete_outline),
@@ -1205,6 +1721,9 @@ class InventoryConfirmScreen extends StatefulWidget {
 class _InventoryConfirmScreenState extends State<InventoryConfirmScreen> {
   InventoryScan? _scan;
   String? _loadedScanId;
+  String? _loadError;
+  String? _actionError;
+  var _confirming = false;
 
   @override
   void didChangeDependencies() {
@@ -1218,6 +1737,8 @@ class _InventoryConfirmScreenState extends State<InventoryConfirmScreen> {
     if (oldWidget.scanId != widget.scanId) {
       _scan = null;
       _loadedScanId = null;
+      _loadError = null;
+      _actionError = null;
       _loadIfNeeded();
     }
   }
@@ -1229,10 +1750,40 @@ class _InventoryConfirmScreenState extends State<InventoryConfirmScreen> {
   }
 
   Future<void> _load(String scanId) async {
-    final scan = await AppScope.of(context).inventoryRepository.getScan(scanId);
-    if (mounted && widget.scanId == scanId && scan != _scan) {
-      setState(() => _scan = scan);
+    try {
+      final scan = await AppScope.of(
+        context,
+      ).inventoryRepository.getScan(scanId);
+      if (!mounted || widget.scanId != scanId) return;
+      if (scan == null) {
+        setState(() {
+          _scan = null;
+          _loadError = 'Scan not found.';
+        });
+        return;
+      }
+      setState(() {
+        _scan = scan;
+        _loadError = null;
+      });
+    } catch (_) {
+      if (mounted && widget.scanId == scanId) {
+        setState(() {
+          _scan = null;
+          _loadError = 'Could not load confirmed inventory.';
+        });
+      }
     }
+  }
+
+  void _retryLoad() {
+    setState(() {
+      _scan = null;
+      _loadedScanId = null;
+      _loadError = null;
+      _actionError = null;
+    });
+    _loadIfNeeded();
   }
 
   @override
@@ -1247,9 +1798,24 @@ class _InventoryConfirmScreenState extends State<InventoryConfirmScreen> {
             eyebrow: 'Ready',
             title: 'Use this inventory for matching',
           ),
-          if (scan == null)
+          if (_loadError != null && scan == null)
+            _RetryableErrorState(
+              message: _loadError!,
+              buttonKey: const ValueKey('inventory_confirm_retry_load'),
+              buttonLabel: 'Retry inventory',
+              onRetry: _retryLoad,
+            )
+          else if (scan == null)
             const _LoadingState(label: 'Loading confirmed inventory')
           else ...[
+            if (_actionError != null) ...[
+              McBadge(
+                label: _actionError!,
+                tone: McBadgeTone.danger,
+                icon: Icons.error_outline,
+              ),
+              const SizedBox(height: 10),
+            ],
             McCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1283,20 +1849,37 @@ class _InventoryConfirmScreenState extends State<InventoryConfirmScreen> {
             ),
             McButton(
               key: const ValueKey('inventory_confirm'),
-              label: 'Confirm and match experiments',
+              label: _confirming
+                  ? 'Confirming...'
+                  : 'Confirm and match experiments',
               icon: Icons.auto_awesome_outlined,
-              onPressed: scan.confirmedItems.isEmpty
+              onPressed: scan.confirmedItems.isEmpty || _confirming
                   ? null
                   : () async {
-                      final deps = AppScope.of(context);
-                      final confirmed = await deps.inventoryRepository.confirm(
-                        scan.id,
-                      );
-                      deps.analyticsRepository.track('inventory_confirmed', {
-                        'scan_id': confirmed.id,
+                      setState(() {
+                        _confirming = true;
+                        _actionError = null;
                       });
-                      if (context.mounted) {
-                        context.go('/inventory/${confirmed.id}/experiments');
+                      try {
+                        final deps = AppScope.of(context);
+                        final confirmed = await deps.inventoryRepository
+                            .confirm(scan.id);
+                        deps.analyticsRepository.track('inventory_confirmed', {
+                          'scan_id': confirmed.id,
+                        });
+                        if (context.mounted) {
+                          context.go('/inventory/${confirmed.id}/experiments');
+                        }
+                      } catch (_) {
+                        if (mounted) {
+                          setState(
+                            () => _actionError = 'Could not confirm inventory.',
+                          );
+                        }
+                      } finally {
+                        if (mounted) {
+                          setState(() => _confirming = false);
+                        }
                       }
                     },
             ),
@@ -1464,13 +2047,31 @@ class _ExperimentSuggestionsScreenState
                       ],
                     ),
                     const SizedBox(height: 12),
-                    McButton(
-                      key: ValueKey('suggestion_${suggestion.id}'),
-                      label: 'Review details',
-                      icon: Icons.arrow_forward,
-                      onPressed: () => context.go(
-                        '/inventory/${widget.scanId}/experiments/${suggestion.id}',
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: McButton(
+                            key: ValueKey('suggestion_${suggestion.id}'),
+                            label: 'Review details',
+                            icon: Icons.arrow_forward,
+                            secondary: true,
+                            onPressed: () => context.go(
+                              '/inventory/${widget.scanId}/experiments/${suggestion.id}',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: McButton(
+                            key: ValueKey('generate_lesson_${suggestion.id}'),
+                            label: 'Generate with AI',
+                            icon: Icons.auto_awesome,
+                            onPressed: () => context.go(
+                              '/lesson-generation/${widget.scanId}/${suggestion.id}',
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1988,7 +2589,10 @@ class _LessonEditorScreenState extends State<LessonEditorScreen> {
                   const SizedBox(height: 14),
                   _LessonSection(title: 'Objectives', items: lesson.objectives),
                   _LessonSection(title: 'Materials', items: lesson.materials),
-                  _LessonSection(title: 'Flow', items: lesson.flow),
+                  _LessonSection(
+                    title: 'STEM experiment tutorial',
+                    items: lesson.flow,
+                  ),
                   _LessonSection(title: 'Questions', items: lesson.questions),
                   _LessonSection(
                     title: 'Safety notes',

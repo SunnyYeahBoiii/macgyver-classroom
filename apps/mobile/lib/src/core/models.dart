@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 enum ScanStatus {
   created,
@@ -104,13 +105,28 @@ class TeacherProfile {
 }
 
 class ScanImage {
-  const ScanImage({required this.id, required this.source, required this.path});
+  const ScanImage({
+    required this.id,
+    required this.source,
+    required this.path,
+    this.mimeType = 'image/jpeg',
+    this.bytes,
+    this.dataBase64,
+  });
 
   final String id;
   final String source;
   final String path;
+  final String mimeType;
+  final Uint8List? bytes;
+  final String? dataBase64;
 
-  Map<String, dynamic> toJson() => {'id': id, 'source': source, 'path': path};
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'source': source,
+    'path': path,
+    'mimeType': mimeType,
+  };
 }
 
 class DetectedItem {
@@ -273,6 +289,8 @@ class InventoryScan {
                 id: image['id'] as String? ?? image['path'] as String? ?? '',
                 source: image['source'] as String? ?? 'api',
                 path: image['path'] as String? ?? '',
+                mimeType: image['mimeType'] as String? ?? 'image/jpeg',
+                dataBase64: image['dataBase64'] as String?,
               ),
             )
             .toList() ??
@@ -357,6 +375,9 @@ class LessonPlan {
     required this.assessment,
     required this.safetyNotes,
     required this.sourceExperimentId,
+    this.teacherChecksRequired = const [],
+    this.sourceInventoryScanId,
+    this.aiRunId,
     this.favorite = false,
     this.archived = false,
     this.version = 1,
@@ -375,6 +396,9 @@ class LessonPlan {
   final String assessment;
   final List<String> safetyNotes;
   final String sourceExperimentId;
+  final List<String> teacherChecksRequired;
+  final String? sourceInventoryScanId;
+  final String? aiRunId;
   final bool favorite;
   final bool archived;
   final int version;
@@ -400,6 +424,9 @@ class LessonPlan {
     assessment: assessment,
     safetyNotes: safetyNotes,
     sourceExperimentId: sourceExperimentId,
+    teacherChecksRequired: teacherChecksRequired,
+    sourceInventoryScanId: sourceInventoryScanId,
+    aiRunId: aiRunId,
     favorite: favorite ?? this.favorite,
     archived: archived ?? this.archived,
     version: version ?? this.version,
@@ -417,7 +444,7 @@ class LessonPlan {
       ..writeln('## Materials')
       ..writeln(materials.map((item) => '- $item').join('\n'))
       ..writeln()
-      ..writeln('## Flow')
+      ..writeln('## STEM experiment tutorial')
       ..writeln(flow.map((item) => '- $item').join('\n'))
       ..writeln()
       ..writeln('## Questions')
@@ -428,6 +455,12 @@ class LessonPlan {
       ..writeln()
       ..writeln('## Safety')
       ..writeln(safetyNotes.map((item) => '- $item').join('\n'));
+    if (teacherChecksRequired.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('## Teacher checks')
+        ..writeln(teacherChecksRequired.map((item) => '- $item').join('\n'));
+    }
     return buffer.toString();
   }
 }

@@ -39,12 +39,11 @@ Future<AppDependencies> createAppDependencies({
 }) async {
   final effectiveConfig = config ?? AppConfig.fromEnvironment();
   final lessonRepository = MockLessonRepository();
-  final authRepository = effectiveConfig.useMockBackend
-      ? MockAuthRepository()
-      : ApiAuthRepository(config: effectiveConfig);
+  final authRepository = MockAuthRepository();
   final authController = AuthController(
     repository: authRepository,
-    sessionStore: sessionStore ?? SecureSessionStore(),
+    sessionStore:
+        sessionStore ?? ResilientSessionStore(primary: SecureSessionStore()),
   );
   final dependencies = AppDependencies(
     config: effectiveConfig,
@@ -56,9 +55,13 @@ Future<AppDependencies> createAppDependencies({
             authController: authController,
             config: effectiveConfig,
           ),
-    experimentRepository: MockExperimentRepository(
-      lessonRepository: lessonRepository,
-    ),
+    experimentRepository: effectiveConfig.useMockBackend
+        ? MockExperimentRepository(lessonRepository: lessonRepository)
+        : ApiExperimentRepository(
+            authController: authController,
+            config: effectiveConfig,
+            lessonRepository: lessonRepository,
+          ),
     lessonRepository: lessonRepository,
     exportRepository: ExportRepository(),
     feedbackRepository: FeedbackRepository(),
