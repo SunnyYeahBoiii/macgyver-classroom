@@ -8,6 +8,7 @@ export type AiRunRecord = {
   provider?: string;
   model?: string;
   inventoryScanId?: string;
+  lessonPlanId?: string;
   inputJson?: unknown;
   outputJson?: unknown;
   errorCode?: string;

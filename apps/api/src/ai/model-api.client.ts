@@ -4,6 +4,12 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { buildLessonPlanSystemPrompt } from './lesson-plan.prompt';
+import type {
+  GenerateLessonPlanInput,
+  LessonPlanProvider,
+  LessonPlanResult,
+} from './lesson-plan.types';
 import { buildMaterialScanSystemPrompt } from './material-scan.prompt';
 import type {
   AnalyzeMaterialImagesInput,
@@ -115,8 +121,102 @@ const MATERIAL_SCAN_RESPONSE_SCHEMA = {
   type: 'OBJECT',
 } as const;
 
+const LESSON_PLAN_RESPONSE_SCHEMA = {
+  description: 'Structured classroom STEM lesson plan for teacher review.',
+  propertyOrdering: [
+    'title',
+    'gradeBand',
+    'subject',
+    'topic',
+    'durationMinutes',
+    'objectives',
+    'materials',
+    'lessonFlow',
+    'guidingQuestions',
+    'assessment',
+    'safetyNotes',
+    'teacherChecksRequired',
+  ],
+  properties: {
+    assessment: {
+      description: 'Short teacher-facing formative assessment or exit ticket.',
+      type: 'STRING',
+    },
+    durationMinutes: {
+      description: 'Total estimated lesson duration in minutes.',
+      maximum: 120,
+      minimum: 5,
+      type: 'NUMBER',
+    },
+    gradeBand: {
+      description: 'Target grade band for the lesson.',
+      type: 'STRING',
+    },
+    guidingQuestions: {
+      description: 'Discussion questions for students.',
+      items: { type: 'STRING' },
+      type: 'ARRAY',
+    },
+    lessonFlow: {
+      description: 'Concrete tutorial steps for running the STEM experiment.',
+      items: { type: 'STRING' },
+      type: 'ARRAY',
+    },
+    materials: {
+      description: 'Materials used by the lesson.',
+      items: { type: 'STRING' },
+      type: 'ARRAY',
+    },
+    objectives: {
+      description: 'Measurable student learning objectives.',
+      items: { type: 'STRING' },
+      type: 'ARRAY',
+    },
+    safetyNotes: {
+      description: 'Safety notes visible to the teacher.',
+      items: { type: 'STRING' },
+      type: 'ARRAY',
+    },
+    subject: {
+      description: 'School subject.',
+      type: 'STRING',
+    },
+    teacherChecksRequired: {
+      description:
+        'Teacher checks required before students start the experiment.',
+      items: { type: 'STRING' },
+      type: 'ARRAY',
+    },
+    title: {
+      description: 'Teacher-facing lesson title.',
+      type: 'STRING',
+    },
+    topic: {
+      description: 'Science topic.',
+      type: 'STRING',
+    },
+  },
+  required: [
+    'title',
+    'gradeBand',
+    'subject',
+    'topic',
+    'durationMinutes',
+    'objectives',
+    'materials',
+    'lessonFlow',
+    'guidingQuestions',
+    'assessment',
+    'safetyNotes',
+    'teacherChecksRequired',
+  ],
+  type: 'OBJECT',
+} as const;
+
 @Injectable()
-export class ModelApiClient implements MaterialVisionProvider {
+export class ModelApiClient
+  implements MaterialVisionProvider, LessonPlanProvider
+{
   constructor(private readonly configService: ConfigService) {}
 
   async analyzeMaterials(
@@ -149,13 +249,40 @@ export class ModelApiClient implements MaterialVisionProvider {
       },
     });
 
-    return this.parseResponse(response.text ?? '');
+    return this.parseMaterialResponse(response.text ?? '');
+  }
+
+  async generateLessonPlan(
+    input: GenerateLessonPlanInput,
+  ): Promise<LessonPlanResult> {
+    const model = this.modelName;
+    const ai = await this.createClient();
+    const response = await ai.models.generateContent({
+      model,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: 'Generate the requested lesson plan and return the required JSON only.',
+            },
+          ],
+        },
+      ],
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: LESSON_PLAN_RESPONSE_SCHEMA,
+        systemInstruction: buildLessonPlanSystemPrompt(input),
+      },
+    });
+
+    return this.parseLessonPlanResponse(response.text ?? '');
   }
 
   get modelName(): string {
     return (
       this.configService.get<string>('GOOGLE_VERTEX_MODEL') ??
-      'gemini-2.5-flash-image'
+      'gemini-2.5-flash'
     );
   }
 
@@ -226,7 +353,7 @@ export class ModelApiClient implements MaterialVisionProvider {
     }
   }
 
-  private parseResponse(text: string): MaterialVisionResult {
+  private parseMaterialResponse(text: string): MaterialVisionResult {
     try {
       const parsed = JSON.parse(text) as Partial<MaterialVisionResult>;
       return {
@@ -242,6 +369,67 @@ export class ModelApiClient implements MaterialVisionProvider {
         message: 'AI provider returned invalid JSON.',
       });
     }
+  }
+
+  private parseLessonPlanResponse(text: string): LessonPlanResult {
+    try {
+      const parsed = JSON.parse(text) as Partial<LessonPlanResult>;
+      return {
+        assessment: this.requiredString(parsed.assessment, 'assessment'),
+        durationMinutes: this.requiredPositiveInteger(
+          parsed.durationMinutes,
+          'durationMinutes',
+        ),
+        gradeBand: this.requiredString(parsed.gradeBand, 'gradeBand'),
+        guidingQuestions: this.requiredStringArray(
+          parsed.guidingQuestions,
+          'guidingQuestions',
+        ),
+        lessonFlow: this.requiredStringArray(parsed.lessonFlow, 'lessonFlow'),
+        materials: this.requiredStringArray(parsed.materials, 'materials'),
+        objectives: this.requiredStringArray(parsed.objectives, 'objectives'),
+        safetyNotes: this.requiredStringArray(
+          parsed.safetyNotes,
+          'safetyNotes',
+        ),
+        subject: this.requiredString(parsed.subject, 'subject'),
+        teacherChecksRequired: this.requiredStringArray(
+          parsed.teacherChecksRequired,
+          'teacherChecksRequired',
+        ),
+        title: this.requiredString(parsed.title, 'title'),
+        topic: this.requiredString(parsed.topic, 'topic'),
+      };
+    } catch {
+      throw new BadGatewayException({
+        code: 'ai_invalid_json',
+        message: 'AI provider returned invalid JSON.',
+      });
+    }
+  }
+
+  private requiredString(value: unknown, key: string): string {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+      throw new Error(`Missing ${key}`);
+    }
+    return value.trim();
+  }
+
+  private requiredStringArray(value: unknown, key: string): string[] {
+    if (!Array.isArray(value)) throw new Error(`Missing ${key}`);
+    const strings = value
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+    if (strings.length === 0) throw new Error(`Missing ${key}`);
+    return strings;
+  }
+
+  private requiredPositiveInteger(value: unknown, key: string): number {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      throw new Error(`Missing ${key}`);
+    }
+    return Math.round(value);
   }
 
   private normalizeItem(item: unknown): MaterialVisionItem {

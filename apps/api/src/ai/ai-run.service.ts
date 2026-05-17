@@ -8,6 +8,14 @@ type StartVisionRunInput = {
   inputJson: unknown;
 };
 
+type StartLessonRunInput = {
+  inventoryScanId: string;
+  lessonPlanId?: string;
+  provider: string;
+  model: string;
+  inputJson: unknown;
+};
+
 @Injectable()
 export class AiRunService {
   constructor(private readonly aiRepository: AiRepository) {}
@@ -19,6 +27,19 @@ export class AiRunService {
         inventoryScanId: input.inventoryScanId,
         model: input.model,
         pipeline: 'VISION_CATALOG',
+        provider: input.provider,
+      }),
+    );
+  }
+
+  startLessonRun(input: StartLessonRunInput): Promise<AiRunRecord> {
+    return Promise.resolve(
+      this.aiRepository.createRun({
+        inputJson: input.inputJson,
+        inventoryScanId: input.inventoryScanId,
+        lessonPlanId: input.lessonPlanId,
+        model: input.model,
+        pipeline: 'LESSON_PLAN_GENERATION',
         provider: input.provider,
       }),
     );
