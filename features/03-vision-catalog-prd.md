@@ -168,7 +168,8 @@ Provider configuration:
 - `GOOGLE_SERVICE_ACCOUNT_JSON` provides service-account JSON credentials.
 - `GOOGLE_VERTEX_PROJECT_ID` overrides the credential `project_id` when needed.
 - `GOOGLE_VERTEX_LOCATION` defaults to `global`.
-- `GOOGLE_VERTEX_MODEL` defaults to `gemini-2.5-flash-image`.
+- `GOOGLE_VERTEX_MODEL` defaults to `gemini-2.5-flash`.
+- The API must not synthesize local fallback detections; only AI provider response items are returned to scan review.
 
 ## UX Requirements
 
